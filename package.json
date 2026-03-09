@@ -1,0 +1,26 @@
+{
+  "name": "venue-management-api",
+  "version": "1.0.0",
+  "description": "Venue management backend – AWS Lambda + Serverless",
+  "main": "src/handlers/authApi.js",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:prod": "serverless deploy --stage prod",
+    "offline": "serverless offline",
+    "test": "node --test tests/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "mongoose": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.38.0",
+    "serverless-offline": "^13.0.0",
+    "dotenv": "^16.3.1"
+  }
+}

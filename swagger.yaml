@@ -1,0 +1,965 @@
+# Venue Management API - Swagger spec
+# Hosted docs URL (after deploy): https://<your-api-id>.execute-api.<region>.amazonaws.com/api/docs
+
+openapi: "3.1.0"
+
+info:
+  title: Venue Management API
+  version: 1.0.0
+  description: |
+    Production-grade Serverless API (AWS Lambda + API Gateway HTTP API)
+    for Venue Management. Roles: **Admin** (full access) and **Incharge** (manages assigned venue).
+
+    **Authentication**
+    - **Incharge**: Register with email + password via `POST /api/auth/register`. Optionally link to a venue with `venueId`.
+    - **Admin**: Created via script or DB; login with email + password.
+    - **Login**: `POST /api/auth/login` with email + password. Returns JWT.
+    - Protected endpoints use `Authorization: Bearer <token>`.
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: Proprietary
+    url: https://example.com/license
+  termsOfService: https://example.com/terms
+
+servers:
+  - url: http://localhost:3000
+    description: Local (serverless-offline)
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com
+    description: Production (API Gateway HTTP API)
+    variables:
+      apiId:
+        default: your-api-id
+      region:
+        default: ap-south-1
+      api-gateway-url:
+        default: https://your-api-id.execute-api.ap-south-1.amazonaws.com/
+
+tags:
+  - name: Authentication
+    description: Registration, login, and user management (Admin, Incharge)
+  - name: Venues
+    description: Venue CRUD
+  - name: Spaces
+    description: Spaces per venue (one venue, multiple spaces)
+  - name: Profile
+    description: Venue profile (logo, tagline, address, social, legal) — Incharge role
+  - name: Health
+    description: Health check
+
+security:
+  - bearerAuth: []
+
+paths:
+  # -------- Auth --------
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register Incharge
+      description: |
+        Create an Incharge account. Email, password, and name required.
+        Optional `venueId` to assign the incharge to a venue.
+        Returns user and JWT.
+      operationId: registerIncharge
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              email: incharge@venue.com
+              password: "SecureP@ss1"
+              name: Venue Manager
+              venueId: "507f1f77bcf86cd799439011"
+      responses:
+        "201":
+          description: Incharge registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login
+      description: Login with email + password. Returns user and JWT. Admin and Incharge.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+      description: Returns the authenticated user (from JWT).
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # -------- Users (Admin only) --------
+  /api/users:
+    post:
+      tags: [Authentication]
+      summary: Create user (Admin)
+      description: |
+        Admin creates a user who has not registered. Provide email, password, name and role (admin or incharge).
+        For incharge, optionally set venueId to assign to a venue. Email must be unique; returns 409 if already registered.
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              email: incharge@venue.com
+              password: "SecureP@ss1"
+              name: Venue Manager
+              role: incharge
+              venueId: "507f1f77bcf86cd799439011"
+      responses:
+        "201":
+          description: User created (no token; user can login with email/password)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    get:
+      tags: [Authentication]
+      summary: List users
+      description: Admin only. List all users.
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Authentication]
+      summary: Get user by ID
+      operationId: getUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Authentication]
+      summary: Update user
+      description: Admin only. Partial update (name, email, role, venueId).
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPatchRequest"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Authentication]
+      summary: Delete user
+      description: Admin only.
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/users/{userId}/block:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Authentication]
+      summary: Block user
+      description: Admin only. Sets user as blocked.
+      operationId: blockUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/users/{userId}/unblock:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Authentication]
+      summary: Unblock user
+      description: Admin only.
+      operationId: unblockUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User unblocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------- Venues --------
+  /api/venues:
+    post:
+      tags: [Venues]
+      summary: Create venue
+      operationId: createVenue
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueCreateRequest"
+      responses:
+        "201":
+          description: Venue created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      tags: [Venues]
+      summary: List venues
+      description: Admin sees all; Incharge sees only their assigned venue.
+      operationId: listVenues
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of venues
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Venues]
+      summary: Get venue by ID
+      operationId: getVenue
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Venue details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Venues]
+      summary: Update venue
+      operationId: updateVenue
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueUpdateRequest"
+      responses:
+        "200":
+          description: Venue updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Venues]
+      summary: Delete venue
+      description: Admin only.
+      operationId: deleteVenue
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Venue deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------- Spaces (multiple spaces per venue) --------
+  /api/venues/{venueId}/spaces:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    post:
+      tags: [Spaces]
+      summary: Add space to venue
+      description: |
+        Create a space for a venue. One venue can have multiple spaces.
+        Admin can add spaces to any venue; Incharge only to their assigned venue.
+      operationId: createSpace
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceCreateRequest"
+            example:
+              name: Main Hall
+              description: Large event space
+              capacity: 200
+              type: hall
+              isActive: true
+      responses:
+        "201":
+          description: Space created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      tags: [Spaces]
+      summary: List spaces for venue
+      description: Returns all spaces for the given venue. Admin: any venue; Incharge: only their venue.
+      operationId: listSpaces
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of spaces
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/venues/{venueId}/spaces/{spaceId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - $ref: "#/components/parameters/SpaceId"
+    get:
+      tags: [Spaces]
+      summary: Get space by ID
+      operationId: getSpace
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Space details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Spaces]
+      summary: Update space
+      operationId: updateSpace
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceUpdateRequest"
+      responses:
+        "200":
+          description: Space updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Spaces]
+      summary: Delete space
+      operationId: deleteSpace
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Space deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------- Profile (Venue profile — Incharge) --------
+  /api/profile/venue:
+    get:
+      tags: [Profile]
+      summary: Get current venue profile
+      description: |
+        Incharge: returns their assigned venue's profile.
+        Admin: pass `venueId` in query to get that venue's profile.
+      operationId: getProfileVenue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: venueId
+          in: query
+          description: Required for Admin when not incharge
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Venue profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Profile]
+      summary: Create or update venue profile
+      description: |
+        Upsert venue profile. Incharge: updates their venue only. Admin: pass `venueId` in body.
+        Fields: logo, venueName, tagline, description, address, googleMapUrl, email, instagram, facebook, website, legal (businessName, gst).
+      operationId: putProfileVenue
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueProfileRequest"
+      responses:
+        "200":
+          description: Venue profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/profile:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Profile]
+      summary: Get venue profile by venue ID
+      operationId: getVenueProfile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Venue profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Profile]
+      summary: Create or update venue profile by venue ID
+      description: Incharge can only update their assigned venue.
+      operationId: putVenueProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueProfileRequest"
+      responses:
+        "200":
+          description: Venue profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------- Health --------
+  /test:
+    get:
+      tags: [Health]
+      summary: Health / Smoke
+      description: Service connectivity check. No auth.
+      operationId: healthCheck
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT from login or register response
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: User ObjectId
+      schema:
+        type: string
+        example: "507f1f77bcf86cd799439011"
+    VenueId:
+      name: venueId
+      in: path
+      required: true
+      description: Venue ObjectId
+      schema:
+        type: string
+        example: "507f1f77bcf86cd799439011"
+    SpaceId:
+      name: spaceId
+      in: path
+      required: true
+      description: Space ObjectId
+      schema:
+        type: string
+        example: "507f1f77bcf86cd799439012"
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: incharge@venue.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "SecureP@ss1"
+        name:
+          type: string
+          minLength: 1
+          example: Venue Manager
+        venueId:
+          type: string
+          nullable: true
+          description: Optional venue to assign to incharge
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@venue.com
+        password:
+          type: string
+          format: password
+          example: "SecureP@ss1"
+
+    AuthSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              type: object
+              properties:
+                _id: { type: string }
+                email: { type: string }
+                name: { type: string }
+                role: { type: string }
+                venueId: { type: string, nullable: true }
+            token:
+              type: string
+              description: JWT for Authorization header
+
+    CreateUserRequest:
+      type: object
+      required: [email, password, name, role]
+      description: Admin creates a user (if not already registered).
+      properties:
+        email:
+          type: string
+          format: email
+          example: incharge@venue.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "SecureP@ss1"
+        name:
+          type: string
+          minLength: 1
+          example: Venue Manager
+        role:
+          type: string
+          enum: [admin, incharge]
+        venueId:
+          type: string
+          nullable: true
+          description: Optional; for incharge only, to assign to a venue
+
+    UserPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [admin, incharge] }
+        venueId: { type: string, nullable: true }
+
+    VenueCreateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        address:
+          type: object
+          properties:
+            line1: { type: string }
+            line2: { type: string }
+            city: { type: string }
+            state: { type: string }
+            pincode: { type: string }
+        contactEmail: { type: string }
+        contactPhone: { type: string }
+        isActive: { type: boolean }
+        metadata: { type: object }
+
+    VenueUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string }
+        description: { type: string }
+        address: { type: object }
+        contactEmail: { type: string }
+        contactPhone: { type: string }
+        isActive: { type: boolean }
+        metadata: { type: object }
+
+    SpaceCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Main Hall
+        description:
+          type: string
+          example: Large event space
+        capacity:
+          type: number
+          nullable: true
+          example: 200
+        type:
+          type: string
+          example: hall
+        isActive:
+          type: boolean
+          default: true
+        metadata:
+          type: object
+
+    SpaceUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string }
+        description: { type: string }
+        capacity: { type: number, nullable: true }
+        type: { type: string }
+        isActive: { type: boolean }
+        metadata: { type: object }
+
+    VenueProfileRequest:
+      type: object
+      description: Venue profile — logo, name, tagline, description, address, googleMapUrl, contacts, social, legal
+      properties:
+        venueId:
+          type: string
+          description: Required for Admin when using PUT /api/profile/venue
+        logo: { type: string }
+        venueName: { type: string }
+        tagline: { type: string }
+        description: { type: string }
+        address:
+          type: object
+          properties:
+            line1: { type: string }
+            line2: { type: string }
+            city: { type: string }
+            state: { type: string }
+            pincode: { type: string }
+            country: { type: string }
+        googleMapUrl: { type: string }
+        email: { type: string }
+        instagram: { type: string }
+        facebook: { type: string }
+        website: { type: string }
+        legal:
+          type: object
+          properties:
+            businessName: { type: string }
+            gst: { type: string }
+
+    SuccessDataSchema:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          description: Response payload (object or array)
+
+    HealthResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            message: { type: string }
+            stage: { type: string }
+            timestamp: { type: string, format: date-time }
+
+    ErrorResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            message: { type: string }
+            code: { type: string }
+
+  responses:
+    BadRequest:
+      description: Bad request (validation or business rule)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Unauthorized (invalid or missing token / credentials)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Forbidden (valid token but insufficient role)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict (e.g. email already registered)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
