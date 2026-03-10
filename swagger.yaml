@@ -444,7 +444,7 @@ paths:
               name: Main Hall
               description: Large event space
               capacity: 200
-              type: hall
+              dimensions: 40ft x 60ft
               isActive: true
       responses:
         "201":
@@ -1029,9 +1029,9 @@ components:
           type: number
           nullable: true
           example: 200
-        type:
+        dimensions:
           type: string
-          example: hall
+          example: 40ft x 60ft
         isActive:
           type: boolean
           default: true
@@ -1045,7 +1045,7 @@ components:
         name: { type: string }
         description: { type: string }
         capacity: { type: number, nullable: true }
-        type: { type: string }
+        dimensions: { type: string }
         isActive: { type: boolean }
         metadata: { type: object }
 

@@ -20,6 +20,24 @@ function parseBody(event) {
   return body && typeof body === 'object' ? body : {};
 }
 
+/** Path params: API Gateway may send camelCase or lowercase. */
+function parsePathParams(event) {
+  const p = event.pathParameters || {};
+  return {
+    venueId: p.venueId ?? p.venueid,
+    contactPersonId: p.contactPersonId ?? p.contactpersonid,
+  };
+}
+
+function toObjectId(id) {
+  if (id == null || id === '') return null;
+  try {
+    return new mongoose.Types.ObjectId(String(id));
+  } catch (_) {
+    return null;
+  }
+}
+
 async function assertVenueAccess(event, venueId) {
   const decoded = auth.requireAuth(event);
   if (decoded.role === auth.ROLES.ADMIN) return;
@@ -49,9 +67,12 @@ async function ensureProfileHasContacts(venueId, contactPersonIds) {
 
 async function postContactPerson(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
-  const venueId = event.pathParameters?.venueId;
+  const { venueId } = parsePathParams(event);
   if (!venueId) return res.error('venueId required', 400);
   await assertVenueAccess(event, venueId);
+
+  const vid = toObjectId(venueId);
+  if (!vid) return res.error('Invalid venueId', 400);
 
   const body = parseBody(event);
   const name = body.name != null ? String(body.name).trim() : '';
@@ -61,18 +82,20 @@ async function postContactPerson(event) {
   const metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
   if (!name || !contactNumber) return res.error('name and contactNumber are required', 400);
 
-  const doc = await ContactPerson.create({ venueId, name, designation, contactNumber, isActive, metadata });
-  await ensureProfileHasContacts(venueId, [doc._id]);
+  const doc = await ContactPerson.create({ venueId: vid, name, designation, contactNumber, isActive, metadata });
+  await ensureProfileHasContacts(vid, [doc._id]);
   return res.success(doc, 201);
 }
 
 async function getContactPersons(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
-  const venueId = event.pathParameters?.venueId;
+  const { venueId } = parsePathParams(event);
   if (!venueId) return res.error('venueId required', 400);
   await assertVenueAccess(event, venueId);
 
-  const vid = new mongoose.Types.ObjectId(String(venueId));
+  const vid = toObjectId(venueId);
+  if (!vid) return res.error('Invalid venueId', 400);
+
   const list = await ContactPerson.aggregate([
     { $match: { venueId: vid } },
     { $sort: { createdAt: -1 } },
@@ -82,13 +105,14 @@ async function getContactPersons(event) {
 
 async function getContactPersonById(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
-  const venueId = event.pathParameters?.venueId;
-  const contactPersonId = event.pathParameters?.contactPersonId;
+  const { venueId, contactPersonId } = parsePathParams(event);
   if (!venueId || !contactPersonId) return res.error('venueId and contactPersonId required', 400);
   await assertVenueAccess(event, venueId);
 
-  const vid = new mongoose.Types.ObjectId(String(venueId));
-  const cid = new mongoose.Types.ObjectId(String(contactPersonId));
+  const vid = toObjectId(venueId);
+  const cid = toObjectId(contactPersonId);
+  if (!vid || !cid) return res.error('Invalid venueId or contactPersonId', 400);
+
   const doc = await ContactPerson.findOne({ _id: cid, venueId: vid }).lean();
   if (!doc) return res.notFound('Contact person not found');
   return res.success(doc);
@@ -96,10 +120,13 @@ async function getContactPersonById(event) {
 
 async function patchContactPerson(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
-  const venueId = event.pathParameters?.venueId;
-  const contactPersonId = event.pathParameters?.contactPersonId;
+  const { venueId, contactPersonId } = parsePathParams(event);
   if (!venueId || !contactPersonId) return res.error('venueId and contactPersonId required', 400);
   await assertVenueAccess(event, venueId);
+
+  const vid = toObjectId(venueId);
+  const cid = toObjectId(contactPersonId);
+  if (!vid || !cid) return res.error('Invalid venueId or contactPersonId', 400);
 
   const body = parseBody(event);
   const allowed = ['name', 'designation', 'contactNumber', 'isActive', 'metadata'];
@@ -110,26 +137,29 @@ async function patchContactPerson(event) {
   if (update.contactNumber != null) update.contactNumber = String(update.contactNumber).trim();
 
   const doc = await ContactPerson.findOneAndUpdate(
-    { _id: contactPersonId, venueId },
+    { _id: cid, venueId: vid },
     { $set: update },
     { new: true }
   ).lean();
   if (!doc) return res.notFound('Contact person not found');
-  await ensureProfileHasContacts(venueId, [doc._id]);
+  await ensureProfileHasContacts(vid, [doc._id]);
   return res.success(doc);
 }
 
 async function deleteContactPerson(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
-  const venueId = event.pathParameters?.venueId;
-  const contactPersonId = event.pathParameters?.contactPersonId;
+  const { venueId, contactPersonId } = parsePathParams(event);
   if (!venueId || !contactPersonId) return res.error('venueId and contactPersonId required', 400);
   await assertVenueAccess(event, venueId);
 
-  const deleted = await ContactPerson.findOneAndDelete({ _id: contactPersonId, venueId }).lean();
+  const vid = toObjectId(venueId);
+  const cid = toObjectId(contactPersonId);
+  if (!vid || !cid) return res.error('Invalid venueId or contactPersonId', 400);
+
+  const deleted = await ContactPerson.findOneAndDelete({ _id: cid, venueId: vid }).lean();
   if (!deleted) return res.notFound('Contact person not found');
   await VenueProfile.findOneAndUpdate(
-    { venueId },
+    { venueId: vid },
     { $pull: { contactPersons: deleted._id } },
     { new: true }
   );

@@ -83,7 +83,37 @@ async function getMe(event) {
         from: 'contactpersons',
         localField: 'venueProfile.contactPersons',
         foreignField: '_id',
-        as: 'contactPersons',
+        as: '_cpResolved',
+      },
+    },
+    {
+      $lookup: {
+        from: 'contactpeople',
+        localField: 'venueProfile.contactPersons',
+        foreignField: '_id',
+        as: '_cpLegacy',
+      },
+    },
+    {
+      $addFields: {
+        _cpMerged: {
+          $reduce: {
+            input: { $concatArrays: ['$_cpResolved', '$_cpLegacy'] },
+            initialValue: [],
+            in: {
+              $cond: [
+                {
+                  $in: [
+                    '$$this._id',
+                    { $map: { input: '$$value', as: 'v', in: '$$v._id' } },
+                  ],
+                },
+                '$$value',
+                { $concatArrays: ['$$value', ['$$this']] },
+              ],
+            },
+          },
+        },
       },
     },
     {
@@ -91,13 +121,13 @@ async function getMe(event) {
         venueProfile: {
           $cond: [
             { $ifNull: ['$venueProfile', false] },
-            { $mergeObjects: ['$venueProfile', { contactPersons: '$contactPersons' }] },
+            { $mergeObjects: ['$venueProfile', { contactPersons: '$_cpMerged' }] },
             null,
           ],
         },
       },
     },
-    { $project: { contactPersons: 0 } },
+    { $project: { _cpResolved: 0, _cpLegacy: 0, _cpMerged: 0 } },
   ]);
   const doc = list[0] || null;
   if (!doc) return res.notFound('User not found');

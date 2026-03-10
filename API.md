@@ -241,7 +241,7 @@ One venue can have many spaces. Admin can manage any venue’s spaces; Incharge 
 | name        | string  | ✓        | Space name         |
 | description | string  |          |                    |
 | capacity    | number  |          | Capacity (e.g. seats) |
-| type        | string  |          | e.g. hall, room, stage |
+| dimensions  | string  |          | e.g. 40ft x 60ft       |
 | isActive    | boolean |          | Default true       |
 | metadata    | object  |          |                    |
 
@@ -251,7 +251,7 @@ One venue can have many spaces. Admin can manage any venue’s spaces; Incharge 
   "name": "Main Hall",
   "description": "Large event space",
   "capacity": 200,
-  "type": "hall",
+  "dimensions": "40ft x 60ft",
   "isActive": true
 }
 ```

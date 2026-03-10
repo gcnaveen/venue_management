@@ -11,7 +11,8 @@ const contactPersonSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
-  { timestamps: true }
+  // Explicit collection so $lookup in aggregations matches (Mongoose would default to "contactpeople").
+  { timestamps: true, collection: 'contactpersons' }
 );
 
 contactPersonSchema.index({ venueId: 1, contactNumber: 1 });

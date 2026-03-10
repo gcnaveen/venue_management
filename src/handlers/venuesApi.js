@@ -32,7 +32,37 @@ async function aggregateVenues(match) {
         from: 'contactpersons',
         localField: 'profile.contactPersons',
         foreignField: '_id',
-        as: 'contactPersons',
+        as: '_cpResolved',
+      },
+    },
+    {
+      $lookup: {
+        from: 'contactpeople',
+        localField: 'profile.contactPersons',
+        foreignField: '_id',
+        as: '_cpLegacy',
+      },
+    },
+    {
+      $addFields: {
+        _cpMerged: {
+          $reduce: {
+            input: { $concatArrays: ['$_cpResolved', '$_cpLegacy'] },
+            initialValue: [],
+            in: {
+              $cond: [
+                {
+                  $in: [
+                    '$$this._id',
+                    { $map: { input: '$$value', as: 'v', in: '$$v._id' } },
+                  ],
+                },
+                '$$value',
+                { $concatArrays: ['$$value', ['$$this']] },
+              ],
+            },
+          },
+        },
       },
     },
     {
@@ -40,13 +70,13 @@ async function aggregateVenues(match) {
         profile: {
           $cond: [
             { $ifNull: ['$profile', false] },
-            { $mergeObjects: ['$profile', { contactPersons: '$contactPersons' }] },
+            { $mergeObjects: ['$profile', { contactPersons: '$_cpMerged' }] },
             null,
           ],
         },
       },
     },
-    { $project: { contactPersons: 0 } },
+    { $project: { _cpResolved: 0, _cpLegacy: 0, _cpMerged: 0 } },
   ]);
 }
 

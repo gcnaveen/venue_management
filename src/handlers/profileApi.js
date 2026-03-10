@@ -48,14 +48,46 @@ async function getVenueProfileAggregated(venueId) {
   const vid = new mongoose.Types.ObjectId(String(venueId));
   const list = await VenueProfile.aggregate([
     { $match: { venueId: vid } },
+    { $addFields: { _cpIds: { $ifNull: ['$contactPersons', []] } } },
     {
       $lookup: {
         from: 'contactpersons',
-        localField: 'contactPersons',
+        localField: '_cpIds',
         foreignField: '_id',
-        as: 'contactPersons',
+        as: '_cpResolved',
       },
     },
+    {
+      $lookup: {
+        from: 'contactpeople',
+        localField: '_cpIds',
+        foreignField: '_id',
+        as: '_cpLegacy',
+      },
+    },
+    {
+      $addFields: {
+        contactPersons: {
+          $reduce: {
+            input: { $concatArrays: ['$_cpResolved', '$_cpLegacy'] },
+            initialValue: [],
+            in: {
+              $cond: [
+                {
+                  $in: [
+                    '$$this._id',
+                    { $map: { input: '$$value', as: 'v', in: '$$v._id' } },
+                  ],
+                },
+                '$$value',
+                { $concatArrays: ['$$value', ['$$this']] },
+              ],
+            },
+          },
+        },
+      },
+    },
+    { $project: { _cpIds: 0, _cpResolved: 0, _cpLegacy: 0 } },
   ]);
   return list[0] || null;
 }
@@ -161,15 +193,23 @@ async function deleteContactPerson(event) {
     event.pathParameters?.contactPersonId || event.pathParameters?.contactId || event.pathParameters?.id;
   if (!contactPersonId) return res.error('contactPersonId required', 400);
 
-  // Supports both routes: with /venues/{venueId}/... and without (uses incharge venue or admin query)
   const venueId = await resolveVenueId(event, user);
   if (!venueId) return res.error('venueId is required for admin', 400);
 
-  const deleted = await ContactPerson.findOneAndDelete({ _id: contactPersonId, venueId }).lean();
+  let vid;
+  let cid;
+  try {
+    vid = new mongoose.Types.ObjectId(String(venueId));
+    cid = new mongoose.Types.ObjectId(String(contactPersonId));
+  } catch (_) {
+    return res.error('Invalid venueId or contactPersonId', 400);
+  }
+
+  const deleted = await ContactPerson.findOneAndDelete({ _id: cid, venueId: vid }).lean();
   if (!deleted) return res.notFound('Contact person not found');
 
   await VenueProfile.findOneAndUpdate(
-    { venueId },
+    { venueId: vid },
     { $pull: { contactPersons: deleted._id } },
     { new: true }
   );
