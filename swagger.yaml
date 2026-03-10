@@ -45,6 +45,8 @@ tags:
     description: Spaces per venue (one venue, multiple spaces)
   - name: Profile
     description: Venue profile (logo, tagline, address, social, legal) — Incharge role
+  - name: Uploads
+    description: S3 presigned URL generation and file deletion (bucket — venuemanagementdhruva)
   - name: Health
     description: Health check
 
@@ -857,6 +859,80 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # -------- Uploads --------
+  /api/uploads/presign:
+    post:
+      tags: [Uploads]
+      summary: Get presigned PUT URL
+      description: |
+        Returns a presigned S3 PUT URL so the client can upload an image directly to S3 (bucket: **venuemanagementdhruva**).
+
+        **Flow:**
+        1. Call this endpoint with `fileName`, `contentType`, and optionally `entityId`.
+        2. Use the returned `uploadUrl` to `PUT` the raw file binary (set `Content-Type` header to match `contentType`).
+        3. Save the returned `key` or `publicUrl` against your venue / space in MongoDB.
+
+        Only `image/*` content types are accepted.
+      operationId: postPresign
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresignRequest"
+            example:
+              fileName: venue-logo.jpg
+              contentType: image/jpeg
+              entityId: "507f1f77bcf86cd799439011"
+              expiresIn: 900
+      responses:
+        "200":
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresignResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/uploads:
+    delete:
+      tags: [Uploads]
+      summary: Delete uploaded file
+      description: |
+        Deletes an object from S3 by its key.
+        Only keys under the `uploads/` prefix are allowed — arbitrary bucket keys are rejected with 400.
+      operationId: deleteUpload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteUploadRequest"
+            example:
+              key: uploads/images/507f1f77bcf86cd799439011/uuid-venue-logo.jpg
+      responses:
+        "200":
+          description: File deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # -------- Health --------
   /test:
     get:
@@ -1127,6 +1203,62 @@ components:
         data:
           type: object
           description: Response payload (object or array)
+
+    PresignRequest:
+      type: object
+      required: [fileName, contentType]
+      properties:
+        fileName:
+          type: string
+          description: Original filename — sanitized server-side (path traversal stripped)
+          example: venue-logo.jpg
+        contentType:
+          type: string
+          description: MIME type — must be image/*
+          example: image/jpeg
+        entityId:
+          type: string
+          description: MongoDB _id of the entity (venueId, spaceId, etc.) used in the S3 key path. Defaults to "misc".
+          example: "507f1f77bcf86cd799439011"
+        expiresIn:
+          type: integer
+          description: Seconds the presigned URL is valid (1–3600). Defaults to 900 (15 min).
+          default: 900
+          minimum: 1
+          maximum: 3600
+
+    PresignResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            uploadUrl:
+              type: string
+              description: Presigned S3 PUT URL — PUT the raw file binary to this URL
+              example: "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/507f.../uuid-venue-logo.jpg?X-Amz-..."
+            key:
+              type: string
+              description: S3 object key — save this in MongoDB against your entity
+              example: uploads/images/507f1f77bcf86cd799439011/uuid-venue-logo.jpg
+            publicUrl:
+              type: string
+              description: Public HTTPS URL to read the file after upload
+              example: "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/507f.../uuid-venue-logo.jpg"
+            expiresIn:
+              type: integer
+              description: Seconds the presigned URL is valid for
+              example: 900
+
+    DeleteUploadRequest:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+          description: S3 object key returned from POST /api/uploads/presign. Must start with uploads/.
+          example: uploads/images/507f1f77bcf86cd799439011/uuid-venue-logo.jpg
 
     HealthResponse:
       type: object

@@ -414,6 +414,89 @@ If you want direct CRUD (instead of using profile PUT), use these endpoints:
 
 ---
 
+## Uploads (S3)
+
+Bucket: **venuemanagementdhruva** (ap-south-1). Only `image/*` content types are accepted.
+
+**Upload flow:**
+1. Call `POST /api/uploads/presign` to get a presigned PUT URL.
+2. `PUT` the raw file binary directly to `uploadUrl` from the client (set the `Content-Type` header).
+3. Save the returned `key` or `publicUrl` in MongoDB against your venue / space.
+
+---
+
+### Get presigned upload URL  
+`POST /api/uploads/presign`  
+Auth: Admin or Incharge.
+
+**Request body (JSON)**
+| Field       | Type    | Required | Description                                              |
+|-------------|---------|----------|----------------------------------------------------------|
+| fileName    | string  | ✓        | Original filename (sanitized server-side)                |
+| contentType | string  | ✓        | MIME type — must be `image/*` (e.g. `image/jpeg`)       |
+| entityId    | string  |          | MongoDB `_id` of the entity (venueId, spaceId, etc.)    |
+| expiresIn   | number  |          | URL validity in seconds (1–3600). Default: 900 (15 min) |
+
+**Example request**
+```json
+{
+  "fileName": "venue-logo.jpg",
+  "contentType": "image/jpeg",
+  "entityId": "507f1f77bcf86cd799439011",
+  "expiresIn": 900
+}
+```
+
+**Example response**
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/507f.../uuid-venue-logo.jpg?X-Amz-...",
+    "key": "uploads/images/507f1f77bcf86cd799439011/uuid-venue-logo.jpg",
+    "publicUrl": "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/507f.../uuid-venue-logo.jpg",
+    "expiresIn": 900
+  }
+}
+```
+
+Then from the client (Postman / frontend):
+```
+PUT <uploadUrl>
+Content-Type: image/jpeg
+Body: <raw file binary>
+```
+
+---
+
+### Delete uploaded file  
+`DELETE /api/uploads`  
+Auth: Admin or Incharge.
+
+Only keys under the `uploads/` prefix are allowed (prevents deleting arbitrary bucket objects).
+
+**Request body (JSON)**
+| Field | Type   | Required | Description                                    |
+|-------|--------|----------|------------------------------------------------|
+| key   | string | ✓        | S3 key returned from `POST /api/uploads/presign` |
+
+**Example request**
+```json
+{
+  "key": "uploads/images/507f1f77bcf86cd799439011/uuid-venue-logo.jpg"
+}
+```
+
+**Example response**
+```json
+{
+  "success": true,
+  "data": { "deleted": true, "key": "uploads/images/..." }
+}
+```
+
+---
+
 ## Health
 
 ### Health / smoke  

@@ -113,7 +113,10 @@ async function getContactPersonById(event) {
   const cid = toObjectId(contactPersonId);
   if (!vid || !cid) return res.error('Invalid venueId or contactPersonId', 400);
 
-  const doc = await ContactPerson.findOne({ _id: cid, venueId: vid }).lean();
+  let doc = await ContactPerson.findOne({ _id: cid, venueId: vid }).lean();
+  if (!doc) {
+    doc = await mongoose.connection.collection('contactpeople').findOne({ _id: cid, venueId: vid });
+  }
   if (!doc) return res.notFound('Contact person not found');
   return res.success(doc);
 }
@@ -136,11 +139,18 @@ async function patchContactPerson(event) {
   if (update.designation != null) update.designation = String(update.designation).trim();
   if (update.contactNumber != null) update.contactNumber = String(update.contactNumber).trim();
 
-  const doc = await ContactPerson.findOneAndUpdate(
+  let doc = await ContactPerson.findOneAndUpdate(
     { _id: cid, venueId: vid },
     { $set: update },
     { new: true }
   ).lean();
+  if (!doc) {
+    // Legacy documents live in contactpeople (old Mongoose auto-pluralization).
+    const legacyResult = await mongoose.connection
+      .collection('contactpeople')
+      .findOneAndUpdate({ _id: cid, venueId: vid }, { $set: update }, { returnDocument: 'after' });
+    doc = legacyResult?.value ?? legacyResult ?? null;
+  }
   if (!doc) return res.notFound('Contact person not found');
   await ensureProfileHasContacts(vid, [doc._id]);
   return res.success(doc);
@@ -156,11 +166,18 @@ async function deleteContactPerson(event) {
   const cid = toObjectId(contactPersonId);
   if (!vid || !cid) return res.error('Invalid venueId or contactPersonId', 400);
 
-  const deleted = await ContactPerson.findOneAndDelete({ _id: cid, venueId: vid }).lean();
+  // Try primary collection first; fall back to legacy collection created by Mongoose auto-pluralization.
+  let deleted = await ContactPerson.findOneAndDelete({ _id: cid, venueId: vid }).lean();
+  if (!deleted) {
+    const legacyColl = mongoose.connection.collection('contactpeople');
+    const legacyDoc = await legacyColl.findOneAndDelete({ _id: cid, venueId: vid });
+    deleted = legacyDoc?.value ?? legacyDoc ?? null;
+  }
   if (!deleted) return res.notFound('Contact person not found');
+
   await VenueProfile.findOneAndUpdate(
     { venueId: vid },
-    { $pull: { contactPersons: deleted._id } },
+    { $pull: { contactPersons: cid } },
     { new: true }
   );
   return res.success({ deleted: true });

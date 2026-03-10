@@ -13,14 +13,16 @@
     "node": ">=20"
   },
   "dependencies": {
-    "mongoose": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
+    "@aws-sdk/client-s3": "^3.1005.0",
+    "@aws-sdk/s3-request-presigner": "^3.1005.0",
     "bcryptjs": "^2.4.3",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0"
   },
   "devDependencies": {
+    "dotenv": "^16.3.1",
     "serverless": "^3.38.0",
-    "serverless-offline": "^13.0.0",
-    "dotenv": "^16.3.1"
+    "serverless-offline": "^13.0.0"
   }
 }
