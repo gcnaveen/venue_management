@@ -1,12 +1,216 @@
+# # Venue Management Backend API
+# # One Lambda per collection; Admin + Incharge roles; email/password + JWT
+
+# service: venue-management-api
+
+# # Pin to v3 to avoid mandatory Serverless API connectivity (v4).
+# frameworkVersion: '3'
+
+# useDotenv: true
+
+# custom:
+#   nodeEnv:
+#     dev: development
+#     prod: production
+#     $default: development
+
+# provider:
+#   name: aws
+#   runtime: nodejs20.x
+#   region: ${opt:region, 'ap-south-1'}
+#   # Use $default so URL works without /dev/ (e.g. .../api/docs/ping). Use --stage dev for /dev/ URLs.
+#   stage: ${opt:stage, '$default'}
+#   timeout: 60
+#   memorySize: 512
+
+#   environment:
+#     NODE_ENV: ${self:custom.nodeEnv.${self:provider.stage}, 'development'}
+#     STAGE: ${self:provider.stage}
+#     MONGODB_URI: ${env:MONGODB_URI, ''}
+#     MONGODB_URI_STANDARD: ${env:MONGODB_URI_STANDARD, ''}
+#     MONGODB_DISCOVER_PRIMARY: 'false'
+#     JWT_SECRET: ${env:JWT_SECRET, 'change-me'}
+#     JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '24h'}
+#     # S3_BUCKET: ${env:S3_BUCKET, 'venue-management-uploads'}
+
+#   httpApi:
+#     cors: true
+#     payload: '2.0'
+
+#   iamRoleStatements:
+#     - Effect: Allow
+#       Action:
+#         - s3:PutObject
+#         - s3:PutObjectAcl
+#       Resource: arn:aws:s3:::${env:S3_BUCKET, 'venue-management-uploads'}/*
+#     - Effect: Allow
+#       Action:
+#         - s3:GetObject
+#       Resource: arn:aws:s3:::${env:S3_BUCKET, 'venue-management-uploads'}/*
+#     - Effect: Allow
+#       Action:
+#         - s3:CreateMultipartUpload
+#         - s3:UploadPart
+#         - s3:CompleteMultipartUpload
+#         - s3:AbortMultipartUpload
+#       Resource: arn:aws:s3:::${env:S3_BUCKET, 'venue-management-uploads'}/*
+#     - Effect: Allow
+#       Action:
+#         - s3:DeleteObject
+#       Resource: arn:aws:s3:::${env:S3_BUCKET, 'venue-management-uploads'}/*
+
+# functions:
+#   authApi:
+#     handler: src/handlers/authApi.handler
+#     events:
+#       - httpApi:
+#           path: /api/auth/register
+#           method: post
+#       - httpApi:
+#           path: /api/auth/login
+#           method: post
+#       - httpApi:
+#           path: /api/auth/me
+#           method: get
+#       - httpApi:
+#           path: /api/users
+#           method: post
+#       - httpApi:
+#           path: /api/users
+#           method: get
+#       - httpApi:
+#           path: /api/users/{userId}
+#           method: get
+#       - httpApi:
+#           path: /api/users/{userId}
+#           method: patch
+#       - httpApi:
+#           path: /api/users/{userId}
+#           method: delete
+#       - httpApi:
+#           path: /api/users/{userId}/block
+#           method: post
+#       - httpApi:
+#           path: /api/users/{userId}/unblock
+#           method: post
+
+#   # Venues collection
+#   venuesApi:
+#     handler: src/handlers/venuesApi.handler
+#     events:
+#       - httpApi:
+#           path: /api/venues
+#           method: post
+#       - httpApi:
+#           path: /api/venues
+#           method: get
+#       - httpApi:
+#           path: /api/venues/{venueId}
+#           method: get
+#       - httpApi:
+#           path: /api/venues/{venueId}
+#           method: patch
+#       - httpApi:
+#           path: /api/venues/{venueId}
+#           method: delete
+
+#   # Spaces: multiple spaces per venue
+#   spacesApi:
+#     handler: src/handlers/spacesApi.handler
+#     events:
+#       - httpApi:
+#           path: /api/venues/{venueId}/spaces
+#           method: post
+#       - httpApi:
+#           path: /api/venues/{venueId}/spaces
+#           method: get
+#       - httpApi:
+#           path: /api/venues/{venueId}/spaces/{spaceId}
+#           method: get
+#       - httpApi:
+#           path: /api/venues/{venueId}/spaces/{spaceId}
+#           method: patch
+#       - httpApi:
+#           path: /api/venues/{venueId}/spaces/{spaceId}
+#           method: delete
+
+#   # Profile: venue profile (logo, tagline, address, social, legal) — incharge role
+#   profileApi:
+#     handler: src/handlers/profileApi.handler
+#     events:
+#       - httpApi:
+#           path: /api/profile/venue
+#           method: get
+#       - httpApi:
+#           path: /api/profile/venue
+#           method: put
+#       - httpApi:
+#           path: /api/profile/venue/contact-persons/{contactPersonId}
+#           method: delete
+#       - httpApi:
+#           path: /api/venues/{venueId}/profile
+#           method: get
+#       - httpApi:
+#           path: /api/venues/{venueId}/profile
+#           method: put
+#       - httpApi:
+#           path: /api/venues/{venueId}/profile/contact-persons/{contactPersonId}
+#           method: delete
+
+#   testApi:
+#     handler: src/handlers/testApi.handler
+#     events:
+#       - httpApi:
+#           path: /test
+#           method: GET
+
+#   # Swagger UI and spec (hosted docs URL). No trailing-slash paths (API Gateway rejects empty path segments.)
+#   swaggerApi:
+#     handler: src/handlers/swaggerApi.handler
+#     events:
+#       - httpApi:
+#           path: /api/docs/ping
+#           method: GET
+#       - httpApi:
+#           path: /api/docs
+#           method: GET
+#       - httpApi:
+#           path: /api/docs/swagger.yaml
+#           method: GET
+#       - httpApi:
+#           path: /api/docs/swagger.json
+#           method: GET
+#       - httpApi:
+#           path: /docs
+#           method: GET
+#       - httpApi:
+#           path: /swagger-ui
+#           method: GET
+#       - httpApi:
+#           path: /venue-docs
+#           method: GET
+
+# plugins:
+#   - serverless-offline
 # Venue Management Backend API
 # One Lambda per collection; Admin + Incharge roles; email/password + JWT
 
 service: venue-management-api
 
-# Pin to v3 to avoid mandatory Serverless API connectivity (v4).
 frameworkVersion: '3'
 
 useDotenv: true
+
+# ─── Package: ensure swagger spec is included in every Lambda zip ───────────
+package:
+  individually: false
+  patterns:
+    - '!**'               # exclude everything by default
+    - 'src/**'            # include all handler source
+    - 'node_modules/**'   # include dependencies
+    - 'swagger.yaml'      # ← CRITICAL: include spec at project root
+    - 'openapi.yaml'      # include if you also use this name
+    - 'api-docs/**'       # include if spec lives in api-docs/
 
 custom:
   nodeEnv:
@@ -18,7 +222,6 @@ provider:
   name: aws
   runtime: nodejs20.x
   region: ${opt:region, 'ap-south-1'}
-  # Use $default so URL works without /dev/ (e.g. .../api/docs/ping). Use --stage dev for /dev/ URLs.
   stage: ${opt:stage, '$default'}
   timeout: 60
   memorySize: 512
@@ -31,7 +234,6 @@ provider:
     MONGODB_DISCOVER_PRIMARY: 'false'
     JWT_SECRET: ${env:JWT_SECRET, 'change-me'}
     JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '24h'}
-    # S3_BUCKET: ${env:S3_BUCKET, 'venue-management-uploads'}
 
   httpApi:
     cors: true
@@ -94,7 +296,6 @@ functions:
           path: /api/users/{userId}/unblock
           method: post
 
-  # Venues collection
   venuesApi:
     handler: src/handlers/venuesApi.handler
     events:
@@ -114,7 +315,6 @@ functions:
           path: /api/venues/{venueId}
           method: delete
 
-  # Spaces: multiple spaces per venue
   spacesApi:
     handler: src/handlers/spacesApi.handler
     events:
@@ -134,7 +334,6 @@ functions:
           path: /api/venues/{venueId}/spaces/{spaceId}
           method: delete
 
-  # Profile: venue profile (logo, tagline, address, social, legal) — incharge role
   profileApi:
     handler: src/handlers/profileApi.handler
     events:
@@ -164,12 +363,14 @@ functions:
           path: /test
           method: GET
 
-  # Swagger UI and spec (hosted docs URL). No trailing-slash paths (API Gateway rejects empty path segments.)
   swaggerApi:
     handler: src/handlers/swaggerApi.handler
     events:
       - httpApi:
           path: /api/docs/ping
+          method: GET
+      - httpApi:
+          path: /api/docs/debug        # ← new debug endpoint
           method: GET
       - httpApi:
           path: /api/docs

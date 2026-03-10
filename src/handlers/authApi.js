@@ -4,6 +4,7 @@ const { connect } = require('../lib/db');
 const auth = require('../lib/auth');
 const res = require('../lib/response');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 
 function getPath(event) {
   return (event.rawPath || event.path || '').replace(/^\/api/, '') || '/';
@@ -55,7 +56,50 @@ async function postLogin(event) {
 
 async function getMe(event) {
   const user = auth.requireAuth(event);
-  const doc = await User.findById(user.sub).select('-password');
+  const uid = new mongoose.Types.ObjectId(String(user.sub));
+  const list = await User.aggregate([
+    { $match: { _id: uid } },
+    { $project: { password: 0 } },
+    {
+      $lookup: {
+        from: 'venues',
+        localField: 'venueId',
+        foreignField: '_id',
+        as: 'venue',
+      },
+    },
+    { $unwind: { path: '$venue', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'venueprofiles',
+        localField: 'venueId',
+        foreignField: 'venueId',
+        as: 'venueProfile',
+      },
+    },
+    { $unwind: { path: '$venueProfile', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'contactpersons',
+        localField: 'venueProfile.contactPersons',
+        foreignField: '_id',
+        as: 'contactPersons',
+      },
+    },
+    {
+      $addFields: {
+        venueProfile: {
+          $cond: [
+            { $ifNull: ['$venueProfile', false] },
+            { $mergeObjects: ['$venueProfile', { contactPersons: '$contactPersons' }] },
+            null,
+          ],
+        },
+      },
+    },
+    { $project: { contactPersons: 0 } },
+  ]);
+  const doc = list[0] || null;
   if (!doc) return res.notFound('User not found');
   return res.success(doc);
 }

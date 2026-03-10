@@ -6,6 +6,7 @@ const res = require('../lib/response');
 const VenueProfile = require('../models/VenueProfile');
 const User = require('../models/User');
 const ContactPerson = require('../models/ContactPerson');
+const mongoose = require('mongoose');
 
 function getPath(event) {
   return (event.rawPath || event.path || '').replace(/^\/api/, '') || '/';
@@ -43,6 +44,22 @@ async function upsertContactPersons(venueId, contactPersons) {
   return ids;
 }
 
+async function getVenueProfileAggregated(venueId) {
+  const vid = new mongoose.Types.ObjectId(String(venueId));
+  const list = await VenueProfile.aggregate([
+    { $match: { venueId: vid } },
+    {
+      $lookup: {
+        from: 'contactpersons',
+        localField: 'contactPersons',
+        foreignField: '_id',
+        as: 'contactPersons',
+      },
+    },
+  ]);
+  return list[0] || null;
+}
+
 /**
  * Resolve venueId for the request: incharge restricted to their venueId; admin can use param or query.
  */
@@ -78,7 +95,7 @@ async function getProfileVenue(event) {
   const user = auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
   const venueId = await resolveVenueId(event, user);
   if (!venueId) return res.error('venueId is required for admin', 400);
-  const doc = await VenueProfile.findOne({ venueId }).populate('contactPersons').lean();
+  const doc = await getVenueProfileAggregated(venueId);
   if (!doc) return res.notFound('Venue profile not found');
   return res.success(doc);
 }
@@ -133,7 +150,7 @@ async function getVenueProfile(event) {
   const venueId = event.pathParameters?.venueId;
   if (!venueId) return res.error('venueId required', 400);
   await resolveVenueId(event, user);
-  const doc = await VenueProfile.findOne({ venueId }).populate('contactPersons').lean();
+  const doc = await getVenueProfileAggregated(venueId);
   if (!doc) return res.notFound('Venue profile not found');
   return res.success(doc);
 }
@@ -197,7 +214,7 @@ async function putVenueProfile(event) {
     { venueId },
     { $set: update },
     { new: true, upsert: true }
-  ).populate('contactPersons').lean();
+  ).lean();
   return res.success(doc);
 }
 

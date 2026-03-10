@@ -5,6 +5,7 @@ const auth = require('../lib/auth');
 const res = require('../lib/response');
 const Venue = require('../models/Venue');
 const Space = require('../models/Space');
+const mongoose = require('mongoose');
 
 function getPath(event) {
   return (event.rawPath || event.path || '').replace(/^\/api/, '') || '/';
@@ -61,7 +62,20 @@ async function getSpaces(event) {
   if (!venue) return res.notFound('Venue not found');
   await assertVenueAccess(event, venueId);
 
-  const list = await Space.find({ venueId }).sort({ name: 1 }).lean();
+  const vid = new mongoose.Types.ObjectId(String(venueId));
+  const list = await Space.aggregate([
+    { $match: { venueId: vid } },
+    { $sort: { name: 1 } },
+    {
+      $lookup: {
+        from: 'venues',
+        localField: 'venueId',
+        foreignField: '_id',
+        as: 'venue',
+      },
+    },
+    { $unwind: { path: '$venue', preserveNullAndEmptyArrays: true } },
+  ]);
   return res.success(list);
 }
 
@@ -73,7 +87,21 @@ async function getSpaceById(event) {
   if (!venueId || !spaceId) return res.error('venueId and spaceId required', 400);
   await assertVenueAccess(event, venueId);
 
-  const doc = await Space.findOne({ _id: spaceId, venueId }).lean();
+  const vid = new mongoose.Types.ObjectId(String(venueId));
+  const sid = new mongoose.Types.ObjectId(String(spaceId));
+  const list = await Space.aggregate([
+    { $match: { _id: sid, venueId: vid } },
+    {
+      $lookup: {
+        from: 'venues',
+        localField: 'venueId',
+        foreignField: '_id',
+        as: 'venue',
+      },
+    },
+    { $unwind: { path: '$venue', preserveNullAndEmptyArrays: true } },
+  ]);
+  const doc = list[0] || null;
   if (!doc) return res.notFound('Space not found');
   return res.success(doc);
 }

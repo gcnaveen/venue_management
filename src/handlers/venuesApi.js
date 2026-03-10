@@ -4,6 +4,7 @@ const { connect } = require('../lib/db');
 const auth = require('../lib/auth');
 const res = require('../lib/response');
 const Venue = require('../models/Venue');
+const mongoose = require('mongoose');
 
 function getPath(event) {
   return (event.rawPath || event.path || '').replace(/^\/api/, '') || '/';
@@ -11,6 +12,42 @@ function getPath(event) {
 
 function getMethod(event) {
   return (event.requestContext?.http?.method || event.httpMethod || 'GET').toUpperCase();
+}
+
+async function aggregateVenues(match) {
+  return Venue.aggregate([
+    { $match: match || {} },
+    { $sort: { name: 1 } },
+    {
+      $lookup: {
+        from: 'venueprofiles',
+        localField: '_id',
+        foreignField: 'venueId',
+        as: 'profile',
+      },
+    },
+    { $unwind: { path: '$profile', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'contactpersons',
+        localField: 'profile.contactPersons',
+        foreignField: '_id',
+        as: 'contactPersons',
+      },
+    },
+    {
+      $addFields: {
+        profile: {
+          $cond: [
+            { $ifNull: ['$profile', false] },
+            { $mergeObjects: ['$profile', { contactPersons: '$contactPersons' }] },
+            null,
+          ],
+        },
+      },
+    },
+    { $project: { contactPersons: 0 } },
+  ]);
 }
 
 async function postVenue(event) {
@@ -34,7 +71,8 @@ async function getVenues(event) {
     const u = await User.findById(incharge.sub).select('venueId').lean();
     if (u?.venueId) query._id = u.venueId;
   }
-  const list = await Venue.find(query).sort({ name: 1 }).lean();
+  const match = query._id ? { _id: new mongoose.Types.ObjectId(String(query._id)) } : {};
+  const list = await aggregateVenues(match);
   return res.success(list);
 }
 
@@ -42,7 +80,8 @@ async function getVenueById(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
   const venueId = event.pathParameters?.venueId;
   if (!venueId) return res.error('venueId required', 400);
-  const doc = await Venue.findById(venueId).lean();
+  const list = await aggregateVenues({ _id: new mongoose.Types.ObjectId(String(venueId)) });
+  const doc = list[0];
   if (!doc) return res.notFound('Venue not found');
   return res.success(doc);
 }
