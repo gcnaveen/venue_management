@@ -15,18 +15,20 @@ function getMethod(event) {
 
 async function postRegister(event) {
   const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
-  const { email, password, name, venueId } = body;
+  const { email, password, name, role: roleRaw, venueId } = body;
   if (!email || !password || !name) {
     return res.error('email, password and name are required', 400);
   }
+  const r = String(roleRaw ?? '').toLowerCase().trim();
+  const role = (r === auth.ROLES.ADMIN || r === auth.ROLES.INCHARGE) ? r : auth.ROLES.INCHARGE;
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) return res.error('Email already registered', 409);
   const user = await User.create({
     email: email.toLowerCase(),
     password,
     name: (name || '').trim(),
-    role: auth.ROLES.INCHARGE,
-    venueId: venueId || null,
+    role,
+    venueId: role === auth.ROLES.INCHARGE ? (venueId || null) : null,
   });
   const token = auth.signToken({ _id: user._id, email: user.email, role: user.role });
   return res.success(
@@ -58,16 +60,39 @@ async function getMe(event) {
   return res.success(doc);
 }
 
-/** Admin creates a user (if the user has not registered). */
+/** Parse JSON body from Lambda event (string or object; optional base64). */
+function parseBody(event) {
+  let raw = event.body;
+  if (raw == null) return {};
+  if (typeof raw === 'object' && !Buffer.isBuffer(raw)) return raw;
+  if (event.isBase64Encoded && typeof raw === 'string') {
+    try {
+      raw = Buffer.from(raw, 'base64').toString('utf8');
+    } catch (_) {}
+  }
+  if (typeof raw !== 'string') return {};
+  try {
+    return JSON.parse(raw || '{}');
+  } catch (_) {
+    return {};
+  }
+}
+
+/** Admin creates a user (if the user has not registered). Use POST /api/users with Admin Bearer token (not POST /api/auth/register). */
 async function postCreateUser(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN]);
-  const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
-  const { email, password, name, role, venueId } = body;
+  const body = parseBody(event);
+  const email = body.email != null ? String(body.email).trim() : '';
+  const password = body.password;
+  const name = body.name != null ? String(body.name).trim() : '';
+  const roleRaw = body.role ?? body.Role ?? '';
+  const venueId = body.venueId;
+
   if (!email || !password || !name) {
     return res.error('email, password and name are required', 400);
   }
-  const r = (role || '').toLowerCase();
-  if (![auth.ROLES.ADMIN, auth.ROLES.INCHARGE].includes(r)) {
+  const r = String(roleRaw).toLowerCase().trim();
+  if (r !== auth.ROLES.ADMIN && r !== auth.ROLES.INCHARGE) {
     return res.error('role must be admin or incharge', 400);
   }
   const existing = await User.findOne({ email: email.toLowerCase() });
@@ -75,7 +100,7 @@ async function postCreateUser(event) {
   const user = await User.create({
     email: email.toLowerCase(),
     password,
-    name: (name || '').trim(),
+    name,
     role: r,
     venueId: r === auth.ROLES.INCHARGE ? (venueId || null) : null,
   });

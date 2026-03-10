@@ -14,14 +14,11 @@ function getMethod(event) {
 }
 
 async function postVenue(event) {
-  const user = auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
+  auth.requireRole(event, [auth.ROLES.ADMIN]);
   const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
+  if (!body?.name) return res.error('name is required', 400);
   const doc = await Venue.create({
     name: body.name || '',
-    description: body.description,
-    address: body.address || {},
-    contactEmail: body.contactEmail,
-    contactPhone: body.contactPhone,
     isActive: body.isActive !== false,
     metadata: body.metadata || {},
   });
@@ -51,11 +48,11 @@ async function getVenueById(event) {
 }
 
 async function patchVenue(event) {
-  auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
+  auth.requireRole(event, [auth.ROLES.ADMIN]);
   const venueId = event.pathParameters?.venueId;
   if (!venueId) return res.error('venueId required', 400);
   const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
-  const allowed = ['name', 'description', 'address', 'contactEmail', 'contactPhone', 'isActive', 'metadata'];
+  const allowed = ['name', 'isActive', 'metadata'];
   const update = {};
   for (const k of allowed) if (body[k] !== undefined) update[k] = body[k];
   const doc = await Venue.findByIdAndUpdate(venueId, { $set: update }, { new: true }).lean();

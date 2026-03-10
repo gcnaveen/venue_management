@@ -309,6 +309,7 @@ paths:
     post:
       tags: [Venues]
       summary: Create venue
+      description: Admin only. Creates a venue with name, isActive and metadata. Contact/address/social are managed in the venue profile by incharge.
       operationId: createVenue
       security:
         - bearerAuth: []
@@ -375,6 +376,7 @@ paths:
     patch:
       tags: [Venues]
       summary: Update venue
+      description: Admin only. Updates venue fields (name, isActive, metadata). Contact/address/social are managed in the venue profile.
       operationId: updateVenue
       security:
         - bearerAuth: []
@@ -805,17 +807,6 @@ components:
       type: object
       properties:
         name: { type: string }
-        description: { type: string }
-        address:
-          type: object
-          properties:
-            line1: { type: string }
-            line2: { type: string }
-            city: { type: string }
-            state: { type: string }
-            pincode: { type: string }
-        contactEmail: { type: string }
-        contactPhone: { type: string }
         isActive: { type: boolean }
         metadata: { type: object }
 
@@ -824,10 +815,6 @@ components:
       minProperties: 1
       properties:
         name: { type: string }
-        description: { type: string }
-        address: { type: object }
-        contactEmail: { type: string }
-        contactPhone: { type: string }
         isActive: { type: boolean }
         metadata: { type: object }
 

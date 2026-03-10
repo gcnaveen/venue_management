@@ -85,7 +85,7 @@ Returns the authenticated user from JWT.
 `POST /api/users`  
 **Auth:** Bearer (Admin).
 
-If a user has not registered, Admin can create them with email, password, name and role (admin or incharge). For incharge, optionally set `venueId` to assign to a venue.
+**Use this URL, not** `POST /api/auth/register` (register always creates incharge). If a user has not registered, Admin can create them with email, password, name and role (admin or incharge). For incharge, optionally set `venueId` to assign to a venue.
 
 **Request body (JSON)**
 | Field    | Type   | Required | Description                    |
@@ -173,18 +173,16 @@ Partial update: name, email, role, venueId.
 
 ### Create venue  
 `POST /api/venues`  
-**Auth:** Bearer.
+**Auth:** Bearer (**Admin only**).
 
 **Request body (JSON)**
-| Field        | Type    | Description                    |
-|--------------|---------|--------------------------------|
-| name         | string  |                                |
-| description  | string  |                                |
-| address      | object  | line1, line2, city, state, pincode |
-| contactEmail | string  |                                |
-| contactPhone | string  |                                |
-| isActive     | boolean |                                |
-| metadata     | object  |                                |
+| Field    | Type    | Description |
+|----------|---------|-------------|
+| name     | string  | Required    |
+| isActive | boolean | Default true |
+| metadata | object  | Optional    |
+
+**Note:** Venue contact/address/social info is managed via **venue profile** endpoints by the incharge (`PUT /api/profile/venue` or `PUT /api/venues/{venueId}/profile`).
 
 **Responses:** 201 (created), 400, 401, 403.
 
@@ -210,9 +208,11 @@ Admin: all venues; Incharge: only assigned venue.
 
 ### Update venue  
 `PATCH /api/venues/{venueId}`  
-**Auth:** Bearer.
+**Auth:** Bearer (**Admin only**).
 
-**Request body (JSON)** — at least one: name, description, address, contactEmail, contactPhone, isActive, metadata.
+**Request body (JSON)** — at least one: name, isActive, metadata.
+
+**Note:** Venue contact/address/social info is managed via **venue profile** endpoints by the incharge.
 
 **Responses:** 200, 400, 401, 403, 404.
 
