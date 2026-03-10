@@ -358,6 +358,35 @@ functions:
           path: /api/venues/{venueId}/pricing
           method: delete
 
+  # Gallery: albums with photos per venue
+  galleryApi:
+    handler: src/handlers/galleryApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/gallery
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/gallery
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/gallery/{albumId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/gallery/{albumId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/gallery/{albumId}
+          method: delete
+      - httpApi:
+          path: /api/venues/{venueId}/gallery/{albumId}/photos
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/gallery/{albumId}/photos/{photoId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/gallery/{albumId}/photos/{photoId}
+          method: delete
+
   # Contact persons: name, designation, phone (mapped to venue profile)
   contactPersonsApi:
     handler: src/handlers/contactPersonsApi.handler

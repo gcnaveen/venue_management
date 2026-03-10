@@ -499,6 +499,132 @@ Only keys under the `uploads/` prefix are allowed (prevents deleting arbitrary b
 
 ---
 
+## Gallery (Albums + Photos)
+
+One venue can have multiple albums. Each album contains multiple photos (stored as sub-documents).
+
+**Flow:** Upload images via `POST /api/uploads/presign`, then pass the `publicUrl` / `key` when adding photos to an album.
+
+---
+
+### Create album  
+`POST /api/venues/{venueId}/gallery`  
+Auth: Admin or Incharge.
+
+**Request body (JSON)**
+
+| Field       | Type    | Required | Description                    |
+|-------------|---------|----------|--------------------------------|
+| name        | string  | ✓        | Album name                     |
+| description | string  |          | Album description              |
+| coverImage  | string  |          | S3 URL for album cover image   |
+| isActive    | boolean |          | Default: true                  |
+| metadata    | object  |          | Any extra data                 |
+
+**Example**
+```json
+{
+  "name": "Wedding Events",
+  "description": "Photos from recent wedding events",
+  "coverImage": "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/.../cover.jpg"
+}
+```
+
+**Responses:** 201, 400, 401, 403.
+
+---
+
+### List albums  
+`GET /api/venues/{venueId}/gallery`  
+Auth: Admin or Incharge.
+
+Response includes `photoCount` for each album.
+
+**Responses:** 200 (array of albums), 401, 403.
+
+---
+
+### Get album by ID  
+`GET /api/venues/{venueId}/gallery/{albumId}`  
+Auth: Admin or Incharge. Returns album with all photos.
+
+**Responses:** 200, 401, 403, 404.
+
+---
+
+### Update album  
+`PATCH /api/venues/{venueId}/gallery/{albumId}`  
+Auth: Admin or Incharge.
+
+**Request body (JSON)** — at least one: name, description, coverImage, isActive, metadata.
+
+**Responses:** 200, 400, 401, 403, 404.
+
+---
+
+### Delete album  
+`DELETE /api/venues/{venueId}/gallery/{albumId}`  
+Auth: Admin or Incharge. Deletes album and all its photos.
+
+**Responses:** 200, 401, 403, 404.
+
+---
+
+### Add photos to album  
+`POST /api/venues/{venueId}/gallery/{albumId}/photos`  
+Auth: Admin or Incharge.
+
+**Request body (JSON)**
+
+| Field             | Type   | Required | Description                                  |
+|-------------------|--------|----------|----------------------------------------------|
+| photos            | array  | ✓        | Array of photo objects                       |
+| photos[].url      | string | ✓        | S3 public URL of uploaded image              |
+| photos[].key      | string |          | S3 object key (for deletion via uploads API) |
+| photos[].caption  | string |          | Photo caption                                |
+| photos[].sortOrder| number |          | Display order (lower = first). Default: 0    |
+
+**Example**
+```json
+{
+  "photos": [
+    {
+      "url": "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/.../photo1.jpg",
+      "key": "uploads/images/.../uuid-photo1.jpg",
+      "caption": "Main hall setup",
+      "sortOrder": 1
+    },
+    {
+      "url": "https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/.../photo2.jpg",
+      "caption": "Stage view",
+      "sortOrder": 2
+    }
+  ]
+}
+```
+
+**Responses:** 200 (updated album), 400, 401, 403, 404.
+
+---
+
+### Update photo  
+`PATCH /api/venues/{venueId}/gallery/{albumId}/photos/{photoId}`  
+Auth: Admin or Incharge.
+
+**Request body (JSON)** — at least one: url, key, caption, sortOrder.
+
+**Responses:** 200 (updated album), 400, 401, 403, 404.
+
+---
+
+### Delete photo  
+`DELETE /api/venues/{venueId}/gallery/{albumId}/photos/{photoId}`  
+Auth: Admin or Incharge. Removes the photo from the album.
+
+**Responses:** 200 (updated album), 401, 403, 404.
+
+---
+
 ## Pricing
 
 Pricing is stored **one document per venue** containing both **venue buyout** and **space buyout** pricing. Duration keys are `"12"`, `"24"`, `"36"`, `"48"` (hours). Price values are strings (empty string = not offered).
