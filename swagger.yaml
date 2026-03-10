@@ -551,6 +551,139 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # -------- Contact Persons (separate CRUD) --------
+  /api/venues/{venueId}/contact-persons:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    post:
+      tags: [Profile]
+      summary: Add contact person to venue
+      description: Creates a contact person for a venue and links it to the venue profile.
+      operationId: createContactPerson
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactPersonRequest"
+      responses:
+        "201":
+          description: Contact person created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      tags: [Profile]
+      summary: List contact persons for venue
+      operationId: listContactPersons
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of contact persons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/contact-persons/{contactPersonId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Profile]
+      summary: Get contact person
+      operationId: getContactPerson
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactPersonId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Contact person
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Profile]
+      summary: Update contact person
+      operationId: updateContactPerson
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactPersonId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactPersonPatchRequest"
+      responses:
+        "200":
+          description: Contact person updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Profile]
+      summary: Delete contact person
+      operationId: removeContactPerson
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactPersonId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Contact person deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # -------- Profile (Venue profile — Incharge) --------
   /api/profile/venue:
     get:
@@ -973,6 +1106,16 @@ components:
           default: true
         metadata:
           type: object
+
+    ContactPersonPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string }
+        designation: { type: string }
+        contactNumber: { type: string }
+        isActive: { type: boolean }
+        metadata: { type: object }
 
     SuccessDataSchema:
       type: object

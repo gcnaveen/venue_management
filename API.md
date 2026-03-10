@@ -390,6 +390,30 @@ To **delete** a contact person:
 
 ---
 
+## Contact persons (separate CRUD APIs)
+
+If you want direct CRUD (instead of using profile PUT), use these endpoints:
+
+- **Create:** `POST /api/venues/{venueId}/contact-persons`
+- **List:** `GET /api/venues/{venueId}/contact-persons`
+- **Get one:** `GET /api/venues/{venueId}/contact-persons/{contactPersonId}`
+- **Update:** `PATCH /api/venues/{venueId}/contact-persons/{contactPersonId}`
+- **Delete:** `DELETE /api/venues/{venueId}/contact-persons/{contactPersonId}`
+
+**Body (create):**
+
+```json
+{ "name": "John Doe", "designation": "Manager", "contactNumber": "+91-9876543210" }
+```
+
+**Body (patch):**
+
+```json
+{ "designation": "GM" }
+```
+
+---
+
 ## Health
 
 ### Health / smoke  

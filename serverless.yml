@@ -334,6 +334,26 @@ functions:
           path: /api/venues/{venueId}/spaces/{spaceId}
           method: delete
 
+  # Contact persons: name, designation, phone (mapped to venue profile)
+  contactPersonsApi:
+    handler: src/handlers/contactPersonsApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/contact-persons
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/contact-persons
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/contact-persons/{contactPersonId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/contact-persons/{contactPersonId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/contact-persons/{contactPersonId}
+          method: delete
+
   profileApi:
     handler: src/handlers/profileApi.handler
     events:
