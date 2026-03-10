@@ -47,6 +47,7 @@ async function postSpace(event) {
     description: body.description,
     capacity: body.capacity,
     dimensions: body.dimensions,
+    images: Array.isArray(body.images) ? body.images.filter(u => typeof u === 'string' && u.trim()) : [],
     isActive: body.isActive !== false,
     metadata: body.metadata || {},
   });
@@ -115,9 +116,12 @@ async function patchSpace(event) {
   await assertVenueAccess(event, venueId);
 
   const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
-  const allowed = ['name', 'description', 'capacity', 'dimensions', 'isActive', 'metadata'];
+  const allowed = ['name', 'description', 'capacity', 'dimensions', 'images', 'isActive', 'metadata'];
   const update = {};
   for (const k of allowed) if (body[k] !== undefined) update[k] = body[k];
+  if (Array.isArray(update.images)) {
+    update.images = update.images.filter(u => typeof u === 'string' && u.trim());
+  }
 
   const doc = await Space.findOneAndUpdate(
     { _id: spaceId, venueId },

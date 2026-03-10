@@ -182,9 +182,26 @@ async function postCreateUser(event) {
   return res.success(created, 201);
 }
 
+async function aggregateUsers(match) {
+  return User.aggregate([
+    { $match: match },
+    { $project: { password: 0 } },
+    { $sort: { createdAt: -1 } },
+    {
+      $lookup: {
+        from: 'venues',
+        localField: 'venueId',
+        foreignField: '_id',
+        as: 'venue',
+      },
+    },
+    { $unwind: { path: '$venue', preserveNullAndEmptyArrays: true } },
+  ]);
+}
+
 async function getUsers(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN]);
-  const list = await User.find({}).select('-password').sort({ createdAt: -1 }).lean();
+  const list = await aggregateUsers({});
   return res.success(list);
 }
 
@@ -192,7 +209,14 @@ async function getUserById(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN]);
   const userId = event.pathParameters?.userId;
   if (!userId) return res.error('userId required', 400);
-  const doc = await User.findById(userId).select('-password');
+
+  let uid;
+  try { uid = new mongoose.Types.ObjectId(String(userId)); } catch (_) {
+    return res.error('Invalid userId', 400);
+  }
+
+  const list = await aggregateUsers({ _id: uid });
+  const doc = list[0];
   if (!doc) return res.notFound('User not found');
   return res.success(doc);
 }

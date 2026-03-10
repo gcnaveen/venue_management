@@ -9,6 +9,7 @@ const spaceSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     capacity: { type: Number, default: null },
     dimensions: { type: String, default: '' },
+    images: [{ type: String }],
     isActive: { type: Boolean, default: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },

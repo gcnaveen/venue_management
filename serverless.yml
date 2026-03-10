@@ -222,7 +222,7 @@ provider:
   name: aws
   runtime: nodejs20.x
   region: ${opt:region, 'ap-south-1'}
-  stage: ${opt:stage, '$default'}
+  stage: ${opt:stage, 'dev'}
   timeout: 29
   memorySize: 512
 
