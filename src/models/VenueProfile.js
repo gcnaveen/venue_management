@@ -24,6 +24,7 @@ const venueProfileSchema = new mongoose.Schema(
     instagram: { type: String, default: '' },
     facebook: { type: String, default: '' },
     website: { type: String, default: '' },
+    contactPersons: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ContactPerson' }],
     // Legal
     legal: {
       businessName: { type: String, default: '', trim: true },

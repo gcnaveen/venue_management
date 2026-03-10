@@ -145,11 +145,17 @@ functions:
           path: /api/profile/venue
           method: put
       - httpApi:
+          path: /api/profile/venue/contact-persons/{contactPersonId}
+          method: delete
+      - httpApi:
           path: /api/venues/{venueId}/profile
           method: get
       - httpApi:
           path: /api/venues/{venueId}/profile
           method: put
+      - httpApi:
+          path: /api/venues/{venueId}/profile/contact-persons/{contactPersonId}
+          method: delete
 
   testApi:
     handler: src/handlers/testApi.handler

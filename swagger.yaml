@@ -611,6 +611,40 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/profile/venue/contact-persons/{contactPersonId}:
+    delete:
+      tags: [Profile]
+      summary: Delete contact person (current venue)
+      description: |
+        Deletes a contact person linked to the current venue profile.
+        Incharge: deletes within their own venue.
+        Admin: provide `venueId` as query param to target a venue.
+      operationId: deleteContactPersonForCurrentVenue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactPersonId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: venueId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/venues/{venueId}/profile:
     parameters:
       - $ref: "#/components/parameters/VenueId"
@@ -654,6 +688,35 @@ paths:
                 $ref: "#/components/schemas/SuccessDataSchema"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/venues/{venueId}/profile/contact-persons/{contactPersonId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    delete:
+      tags: [Profile]
+      summary: Delete contact person (by venue)
+      description: Incharge can only delete within their assigned venue. Admin can delete for any venue.
+      operationId: deleteContactPerson
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactPersonId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -855,7 +918,7 @@ components:
 
     VenueProfileRequest:
       type: object
-      description: Venue profile — logo, name, tagline, description, address, googleMapUrl, contacts, social, legal
+      description: Venue profile — logo, name, tagline, description, address, googleMapUrl, contact persons, social, legal
       properties:
         venueId:
           type: string
@@ -878,11 +941,38 @@ components:
         instagram: { type: string }
         facebook: { type: string }
         website: { type: string }
+        contactPersons:
+          type: array
+          description: Contact people for the venue (stored separately and linked to this profile)
+          items:
+            $ref: "#/components/schemas/ContactPersonRequest"
         legal:
           type: object
           properties:
             businessName: { type: string }
             gst: { type: string }
+
+    ContactPersonRequest:
+      type: object
+      required: [name, contactNumber]
+      properties:
+        _id:
+          type: string
+          description: Optional. If provided, updates the existing contact person for this venue.
+        name:
+          type: string
+          example: John Doe
+        designation:
+          type: string
+          example: Manager
+        contactNumber:
+          type: string
+          example: "+91-9876543210"
+        isActive:
+          type: boolean
+          default: true
+        metadata:
+          type: object
 
     SuccessDataSchema:
       type: object

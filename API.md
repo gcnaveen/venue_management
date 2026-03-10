@@ -314,7 +314,7 @@ Incharge: their venue’s profile. Admin: pass `venueId` to get that venue’s p
 **Auth:** Bearer.
 
 Upsert venue profile. Incharge: their venue only. Admin: pass `venueId` in body.  
-Fields: logo, venueName, tagline, description, address, googleMapUrl, email, instagram, facebook, website, legal (businessName, gst).
+Fields: logo, venueName, tagline, description, address, googleMapUrl, email, instagram, facebook, website, **contactPersons**, legal (businessName, gst).
 
 **Request body (JSON)**
 | Field       | Type   | Description                          |
@@ -330,6 +330,7 @@ Fields: logo, venueName, tagline, description, address, googleMapUrl, email, ins
 | instagram   | string |                                      |
 | facebook    | string |                                      |
 | website     | string |                                      |
+| contactPersons | array | List of contact people (name, designation, contactNumber) |
 | legal       | object | businessName, gst                    |
 
 **Responses:** 200, 400, 401, 403.
@@ -354,6 +355,38 @@ Incharge can only update their assigned venue.
 **Request body (JSON):** Same as PUT /api/profile/venue (venueId in path).
 
 **Responses:** 200, 400, 401, 403, 404.
+
+---
+
+### Contact persons (Venue profile)
+
+Contact persons are stored separately and linked to the venue profile using `venueId`.
+
+Send `contactPersons` in the profile PUT body:
+
+```json
+{
+  "contactPersons": [
+    { "name": "John Doe", "designation": "Manager", "contactNumber": "+91-9876543210" },
+    { "name": "Jane", "designation": "Reception", "contactNumber": "9876500000" }
+  ]
+}
+```
+
+To **update** an existing contact person, include its `_id`:
+
+```json
+{
+  "contactPersons": [
+    { "_id": "507f1f77bcf86cd799439012", "name": "John Doe", "designation": "GM", "contactNumber": "+91-9876543210" }
+  ]
+}
+```
+
+To **delete** a contact person:
+
+- Incharge (current venue): `DELETE /api/profile/venue/contact-persons/{contactPersonId}`
+- Admin (by venue): `DELETE /api/venues/{venueId}/profile/contact-persons/{contactPersonId}`
 
 ---
 

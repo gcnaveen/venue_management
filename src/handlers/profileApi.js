@@ -5,6 +5,7 @@ const auth = require('../lib/auth');
 const res = require('../lib/response');
 const VenueProfile = require('../models/VenueProfile');
 const User = require('../models/User');
+const ContactPerson = require('../models/ContactPerson');
 
 function getPath(event) {
   return (event.rawPath || event.path || '').replace(/^\/api/, '') || '/';
@@ -12,6 +13,34 @@ function getPath(event) {
 
 function getMethod(event) {
   return (event.requestContext?.http?.method || event.httpMethod || 'GET').toUpperCase();
+}
+
+async function upsertContactPersons(venueId, contactPersons) {
+  if (!Array.isArray(contactPersons)) return null;
+  const ids = [];
+  for (const raw of contactPersons) {
+    if (!raw || typeof raw !== 'object') continue;
+    const name = raw.name != null ? String(raw.name).trim() : '';
+    const designation = raw.designation != null ? String(raw.designation).trim() : '';
+    const contactNumber = raw.contactNumber != null ? String(raw.contactNumber).trim() : '';
+    const isActive = raw.isActive !== false;
+    const metadata = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
+    if (!name || !contactNumber) continue;
+
+    if (raw._id) {
+      const updated = await ContactPerson.findOneAndUpdate(
+        { _id: raw._id, venueId },
+        { $set: { name, designation, contactNumber, isActive, metadata } },
+        { new: true }
+      ).lean();
+      if (updated?._id) ids.push(updated._id);
+      continue;
+    }
+
+    const created = await ContactPerson.create({ venueId, name, designation, contactNumber, isActive, metadata });
+    ids.push(created._id);
+  }
+  return ids;
 }
 
 /**
@@ -49,7 +78,7 @@ async function getProfileVenue(event) {
   const user = auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
   const venueId = await resolveVenueId(event, user);
   if (!venueId) return res.error('venueId is required for admin', 400);
-  const doc = await VenueProfile.findOne({ venueId }).lean();
+  const doc = await VenueProfile.findOne({ venueId }).populate('contactPersons').lean();
   if (!doc) return res.notFound('Venue profile not found');
   return res.success(doc);
 }
@@ -64,6 +93,8 @@ async function putProfileVenue(event) {
   if (user.role === auth.ROLES.ADMIN && body.venueId) venueId = body.venueId;
   if (!venueId) return res.error('venueId is required', 400);
 
+  const contactPersonIds = await upsertContactPersons(venueId, body.contactPersons);
+
   const update = {
     logo: body.logo !== undefined ? body.logo : undefined,
     venueName: body.venueName !== undefined ? body.venueName : undefined,
@@ -76,6 +107,7 @@ async function putProfileVenue(event) {
     facebook: body.facebook !== undefined ? body.facebook : undefined,
     website: body.website !== undefined ? body.website : undefined,
     legal: body.legal !== undefined ? body.legal : undefined,
+    contactPersons: contactPersonIds ? contactPersonIds : undefined,
   };
   Object.keys(update).forEach((k) => update[k] === undefined && delete update[k]);
   if (update.legal && typeof update.legal === 'object') {
@@ -101,9 +133,31 @@ async function getVenueProfile(event) {
   const venueId = event.pathParameters?.venueId;
   if (!venueId) return res.error('venueId required', 400);
   await resolveVenueId(event, user);
-  const doc = await VenueProfile.findOne({ venueId }).lean();
+  const doc = await VenueProfile.findOne({ venueId }).populate('contactPersons').lean();
   if (!doc) return res.notFound('Venue profile not found');
   return res.success(doc);
+}
+
+async function deleteContactPerson(event) {
+  const user = auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
+  const contactPersonId =
+    event.pathParameters?.contactPersonId || event.pathParameters?.contactId || event.pathParameters?.id;
+  if (!contactPersonId) return res.error('contactPersonId required', 400);
+
+  // Supports both routes: with /venues/{venueId}/... and without (uses incharge venue or admin query)
+  const venueId = await resolveVenueId(event, user);
+  if (!venueId) return res.error('venueId is required for admin', 400);
+
+  const deleted = await ContactPerson.findOneAndDelete({ _id: contactPersonId, venueId }).lean();
+  if (!deleted) return res.notFound('Contact person not found');
+
+  await VenueProfile.findOneAndUpdate(
+    { venueId },
+    { $pull: { contactPersons: deleted._id } },
+    { new: true }
+  );
+
+  return res.success({ deleted: true });
 }
 
 /**
@@ -116,6 +170,7 @@ async function putVenueProfile(event) {
   await resolveVenueId(event, user);
 
   const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
+  const contactPersonIds = await upsertContactPersons(venueId, body.contactPersons);
   const update = {
     logo: body.logo !== undefined ? body.logo : undefined,
     venueName: body.venueName !== undefined ? body.venueName : undefined,
@@ -128,6 +183,7 @@ async function putVenueProfile(event) {
     facebook: body.facebook !== undefined ? body.facebook : undefined,
     website: body.website !== undefined ? body.website : undefined,
     legal: body.legal !== undefined ? body.legal : undefined,
+    contactPersons: contactPersonIds ? contactPersonIds : undefined,
   };
   Object.keys(update).forEach((k) => update[k] === undefined && delete update[k]);
   if (update.legal && typeof update.legal === 'object') {
@@ -141,15 +197,17 @@ async function putVenueProfile(event) {
     { venueId },
     { $set: update },
     { new: true, upsert: true }
-  ).lean();
+  ).populate('contactPersons').lean();
   return res.success(doc);
 }
 
 const routes = [
   { method: 'GET', path: '/profile/venue', fn: getProfileVenue },
   { method: 'PUT', path: '/profile/venue', fn: putProfileVenue },
+  { method: 'DELETE', path: '/profile/venue/contact-persons/{contactPersonId}', fn: deleteContactPerson },
   { method: 'GET', path: '/venues/{venueId}/profile', fn: getVenueProfile },
   { method: 'PUT', path: '/venues/{venueId}/profile', fn: putVenueProfile },
+  { method: 'DELETE', path: '/venues/{venueId}/profile/contact-persons/{contactPersonId}', fn: deleteContactPerson },
 ];
 
 function matchRoute(method, path) {
