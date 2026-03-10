@@ -45,6 +45,8 @@ tags:
     description: Spaces per venue (one venue, multiple spaces)
   - name: Profile
     description: Venue profile (logo, tagline, address, social, legal) — Incharge role
+  - name: Pricing
+    description: Venue buyout and per-space pricing (rack rates, inclusions, addons) per venue
   - name: Uploads
     description: S3 presigned URL generation and file deletion (bucket — venuemanagementdhruva)
   - name: Health
@@ -862,6 +864,212 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # -------- Pricing --------
+  /api/venues/{venueId}/pricing:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Pricing]
+      summary: Get venue pricing
+      description: |
+        Returns the full pricing document (venue buyout + space buyout) for the venue.
+        Response includes a `spaces` array with all spaces for the venue (for UI mapping).
+        If no pricing exists yet, returns a default empty structure.
+      operationId: getPricing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Pricing document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    put:
+      tags: [Pricing]
+      summary: Upsert venue pricing
+      description: |
+        Create or fully update pricing for a venue. Accepts venue buyout fields, space buyout fields, or both.
+        All values are sanitized server-side.
+      operationId: putPricing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenuePricingRequest"
+            example:
+              buyoutOnly: false
+              rackRates:
+                "12": "50000"
+                "24": "90000"
+                "36": "120000"
+                "48": "150000"
+              inclusions:
+                - name: Sound system
+                  maxQuantity: 1
+                - name: Basic lighting
+              addons:
+                - name: Extra projector
+                  maxQuantity: 2
+                  prices:
+                    "12": "5000"
+                    "24": "8000"
+                    "36": "10000"
+                    "48": "12000"
+              spaceOnly: false
+              spacePricings:
+                69afc2df3235f0510b471102:
+                  rackRates:
+                    "12": "30000"
+                    "24": "55000"
+                    "36": "75000"
+                    "48": "95000"
+                  inclusions:
+                    - name: WiFi
+                  addons: []
+      responses:
+        "200":
+          description: Pricing upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Pricing]
+      summary: Delete venue pricing
+      description: Admin only. Removes all pricing for a venue.
+      operationId: deletePricing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/venues/{venueId}/pricing/venue-buyout:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    patch:
+      tags: [Pricing]
+      summary: Update venue buyout pricing
+      description: Partial update for venue buyout fields only (buyoutOnly, rackRates, inclusions, addons).
+      operationId: patchVenueBuyout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueBuyoutRequest"
+            example:
+              buyoutOnly: false
+              rackRates:
+                "12": "50000"
+                "24": "90000"
+                "36": "120000"
+                "48": "150000"
+              inclusions:
+                - name: Sound system
+                  maxQuantity: 1
+              addons:
+                - name: Catering package
+                  prices:
+                    "12": "20000"
+                    "24": "35000"
+                    "36": "45000"
+                    "48": "55000"
+      responses:
+        "200":
+          description: Venue buyout updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/pricing/space-buyout:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    patch:
+      tags: [Pricing]
+      summary: Update space buyout pricing
+      description: Partial update for space buyout fields only (spaceOnly, spacePricings).
+      operationId: patchSpaceBuyout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpaceBuyoutRequest"
+            example:
+              spaceOnly: false
+              spacePricings:
+                69afc2df3235f0510b471102:
+                  rackRates:
+                    "12": "30000"
+                    "24": "55000"
+                    "36": "75000"
+                    "48": "95000"
+                  inclusions:
+                    - name: WiFi
+                    - name: Projector
+                      maxQuantity: 1
+                  addons:
+                    - name: Catering package
+                      maxQuantity: 1
+                      prices:
+                        "12": "20000"
+                        "24": "35000"
+                        "36": "45000"
+                        "48": "55000"
+      responses:
+        "200":
+          description: Space buyout updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # -------- Uploads --------
   /api/uploads/presign:
     post:
@@ -1216,6 +1424,102 @@ components:
         data:
           type: object
           description: Response payload (object or array)
+
+    RackRates:
+      type: object
+      description: "Keys: duration in hours (12, 24, 36, 48). Values: price as string (empty = not offered)."
+      properties:
+        "12": { type: string, example: "50000" }
+        "24": { type: string, example: "90000" }
+        "36": { type: string, example: "120000" }
+        "48": { type: string, example: "150000" }
+
+    Inclusion:
+      type: object
+      required: [name]
+      properties:
+        _id: { type: string, description: Auto-generated MongoDB ObjectId }
+        name: { type: string, example: Sound system }
+        maxQuantity:
+          type: number
+          nullable: true
+          description: Max quantity per booking (null = unlimited)
+          example: 1
+
+    Addon:
+      type: object
+      required: [name, prices]
+      properties:
+        _id: { type: string, description: Auto-generated MongoDB ObjectId }
+        name: { type: string, example: Extra projector }
+        maxQuantity:
+          type: number
+          nullable: true
+          example: 2
+        prices:
+          $ref: "#/components/schemas/RackRates"
+
+    SpacePricing:
+      type: object
+      properties:
+        rackRates:
+          $ref: "#/components/schemas/RackRates"
+        inclusions:
+          type: array
+          items: { $ref: "#/components/schemas/Inclusion" }
+        addons:
+          type: array
+          items: { $ref: "#/components/schemas/Addon" }
+
+    VenuePricingRequest:
+      type: object
+      description: Full pricing upsert — venue buyout + space buyout. Send any or all fields.
+      properties:
+        buyoutOnly:
+          type: boolean
+          description: If true, hide per-space pricing; only venue buyout offered.
+        rackRates:
+          $ref: "#/components/schemas/RackRates"
+        inclusions:
+          type: array
+          items: { $ref: "#/components/schemas/Inclusion" }
+        addons:
+          type: array
+          items: { $ref: "#/components/schemas/Addon" }
+        spaceOnly:
+          type: boolean
+          description: If true, hide venue buyout; only per-space pricing shown.
+        spacePricings:
+          type: object
+          description: "Map of spaceId → space pricing object."
+          additionalProperties:
+            $ref: "#/components/schemas/SpacePricing"
+
+    VenueBuyoutRequest:
+      type: object
+      description: Partial update for venue buyout fields.
+      minProperties: 1
+      properties:
+        buyoutOnly: { type: boolean }
+        rackRates:
+          $ref: "#/components/schemas/RackRates"
+        inclusions:
+          type: array
+          items: { $ref: "#/components/schemas/Inclusion" }
+        addons:
+          type: array
+          items: { $ref: "#/components/schemas/Addon" }
+
+    SpaceBuyoutRequest:
+      type: object
+      description: Partial update for space buyout fields.
+      minProperties: 1
+      properties:
+        spaceOnly: { type: boolean }
+        spacePricings:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/SpacePricing"
 
     PresignRequest:
       type: object

@@ -338,6 +338,26 @@ functions:
           path: /api/uploads
           method: delete
 
+  # Pricing: venue buyout + space buyout per venue
+  pricingApi:
+    handler: src/handlers/pricingApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/pricing
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/pricing
+          method: put
+      - httpApi:
+          path: /api/venues/{venueId}/pricing/venue-buyout
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/pricing/space-buyout
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/pricing
+          method: delete
+
   # Contact persons: name, designation, phone (mapped to venue profile)
   contactPersonsApi:
     handler: src/handlers/contactPersonsApi.handler

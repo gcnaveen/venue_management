@@ -499,6 +499,101 @@ Only keys under the `uploads/` prefix are allowed (prevents deleting arbitrary b
 
 ---
 
+## Pricing
+
+Pricing is stored **one document per venue** containing both **venue buyout** and **space buyout** pricing. Duration keys are `"12"`, `"24"`, `"36"`, `"48"` (hours). Price values are strings (empty string = not offered).
+
+---
+
+### Get venue pricing  
+`GET /api/venues/{venueId}/pricing`  
+Auth: Admin or Incharge.
+
+Returns the full pricing document. Response includes a `spaces` array with all spaces for the venue (for UI mapping). If no pricing exists, returns a default empty structure.
+
+**Responses:** 200 (pricing doc), 401, 403.
+
+---
+
+### Upsert venue pricing (full)  
+`PUT /api/venues/{venueId}/pricing`  
+Auth: Admin or Incharge.
+
+Create or update pricing. Accepts venue buyout fields, space buyout fields, or both.
+
+**Request body (JSON)**
+
+```json
+{
+  "buyoutOnly": false,
+  "rackRates": { "12": "50000", "24": "90000", "36": "120000", "48": "150000" },
+  "inclusions": [
+    { "name": "Sound system", "maxQuantity": 1 },
+    { "name": "Basic lighting" }
+  ],
+  "addons": [
+    {
+      "name": "Extra projector",
+      "maxQuantity": 2,
+      "prices": { "12": "5000", "24": "8000", "36": "10000", "48": "12000" }
+    }
+  ],
+  "spaceOnly": false,
+  "spacePricings": {
+    "69afc2df3235f0510b471102": {
+      "rackRates": { "12": "30000", "24": "55000", "36": "75000", "48": "95000" },
+      "inclusions": [{ "name": "WiFi" }],
+      "addons": []
+    }
+  }
+}
+```
+
+**Field summary**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| buyoutOnly | boolean | If true, only venue buyout pricing is offered |
+| rackRates | object | `"12"`,`"24"`,`"36"`,`"48"` → price string |
+| inclusions | array | Items included at no extra cost (`name`, optional `maxQuantity`) |
+| addons | array | Extra chargeable items (`name`, optional `maxQuantity`, `prices` per duration) |
+| spaceOnly | boolean | If true, only per-space pricing is offered |
+| spacePricings | object | Map of `spaceId` → `{ rackRates, inclusions, addons }` |
+
+**Responses:** 200 (upserted doc), 400, 401, 403, 404.
+
+---
+
+### Update venue buyout only  
+`PATCH /api/venues/{venueId}/pricing/venue-buyout`  
+Auth: Admin or Incharge.
+
+Partial update — send only venue buyout fields (`buyoutOnly`, `rackRates`, `inclusions`, `addons`).
+
+**Responses:** 200, 400, 401, 403.
+
+---
+
+### Update space buyout only  
+`PATCH /api/venues/{venueId}/pricing/space-buyout`  
+Auth: Admin or Incharge.
+
+Partial update — send only space buyout fields (`spaceOnly`, `spacePricings`).
+
+**Responses:** 200, 400, 401, 403.
+
+---
+
+### Delete venue pricing  
+`DELETE /api/venues/{venueId}/pricing`  
+Auth: Admin only.
+
+Removes all pricing for the venue.
+
+**Responses:** 200, 401, 403, 404.
+
+---
+
 ## Health
 
 ### Health / smoke  
