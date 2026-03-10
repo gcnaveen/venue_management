@@ -172,7 +172,7 @@ paths:
     get:
       tags: [Authentication]
       summary: List users
-      description: Admin only. List all users.
+      description: Admin only. List all users. Response includes populated `venue` object for each user.
       operationId: listUsers
       security:
         - bearerAuth: []
@@ -447,6 +447,9 @@ paths:
               description: Large event space
               capacity: 200
               dimensions: 40ft x 60ft
+              images:
+                - https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/misc/hall-1.jpg
+                - https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/misc/hall-2.jpg
               isActive: true
       responses:
         "201":
@@ -1108,6 +1111,12 @@ components:
         dimensions:
           type: string
           example: 40ft x 60ft
+        images:
+          type: array
+          items: { type: string }
+          description: Array of image URLs (S3 public URLs from POST /api/uploads/presign)
+          example:
+            - https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/misc/hall-1.jpg
         isActive:
           type: boolean
           default: true
@@ -1122,6 +1131,10 @@ components:
         description: { type: string }
         capacity: { type: number, nullable: true }
         dimensions: { type: string }
+        images:
+          type: array
+          items: { type: string }
+          description: Array of image URLs (replaces existing list)
         isActive: { type: boolean }
         metadata: { type: object }
 

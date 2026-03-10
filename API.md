@@ -241,7 +241,8 @@ One venue can have many spaces. Admin can manage any venue’s spaces; Incharge 
 | name        | string  | ✓        | Space name         |
 | description | string  |          |                    |
 | capacity    | number  |          | Capacity (e.g. seats) |
-| dimensions  | string  |          | e.g. 40ft x 60ft       |
+| dimensions  | string  |          | e.g. 40ft x 60ft                        |
+| images      | array   |          | Array of image URLs (S3 public URLs)    |
 | isActive    | boolean |          | Default true       |
 | metadata    | object  |          |                    |
 
@@ -252,6 +253,7 @@ One venue can have many spaces. Admin can manage any venue’s spaces; Incharge 
   "description": "Large event space",
   "capacity": 200,
   "dimensions": "40ft x 60ft",
+  "images": ["https://venuemanagementdhruva.s3.ap-south-1.amazonaws.com/uploads/images/.../hall-1.jpg"],
   "isActive": true
 }
 ```
@@ -282,7 +284,7 @@ One venue can have many spaces. Admin can manage any venue’s spaces; Incharge 
 `PATCH /api/venues/{venueId}/spaces/{spaceId}`  
 **Auth:** Bearer.
 
-**Request body (JSON)** — at least one: name, description, capacity, type, isActive, metadata.
+**Request body (JSON)** — at least one: name, description, capacity, dimensions, images, isActive, metadata.
 
 **Responses:** 200, 400, 401, 403, 404.
 
