@@ -358,6 +358,40 @@ functions:
           path: /api/venues/{venueId}/pricing
           method: delete
 
+  # Quotes: pricing quotes for leads
+  quotesApi:
+    handler: src/handlers/quotesApi.handler
+    events:
+      # Nested under lead
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/quotes
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/quotes
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/quotes/{quoteId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/quotes/{quoteId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/quotes/{quoteId}
+          method: delete
+      # Venue-level (all quotes)
+      - httpApi:
+          path: /api/venues/{venueId}/quotes
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/quotes/{quoteId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/quotes/{quoteId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/quotes/{quoteId}
+          method: delete
+
   # Leads: enquiries / event leads per venue
   leadsApi:
     handler: src/handlers/leadsApi.handler

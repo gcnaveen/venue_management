@@ -49,6 +49,8 @@ tags:
     description: Venue buyout and per-space pricing (rack rates, inclusions, addons) per venue
   - name: Leads
     description: Event enquiries / leads per venue (created by Incharge or Admin)
+  - name: Quotes
+    description: Pricing quotes for leads (draft → confirmed, venue buyout or space buyout)
   - name: Gallery
     description: Albums with photos per venue
   - name: Uploads
@@ -1245,6 +1247,363 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # -------- Quotes --------
+  /api/venues/{venueId}/leads/{leadId}/quotes:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Quotes]
+      summary: Create quote for a lead
+      description: |
+        Create a pricing quote for a lead. Set `draft: true` for save-as-draft, or `confirmed: true` to confirm immediately.
+
+        **Invariant:** `draft=true` forces `confirmed=false` and vice versa. Status is auto-derived.
+      operationId: postQuote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteCreateRequest"
+            examples:
+              venueBuyoutDraft:
+                summary: Venue buyout (draft)
+                value:
+                  bookingType: venue_buyout
+                  eventWindow:
+                    startAt: "2026-03-11T07:31:00.000Z"
+                    endAt: "2026-03-12T07:31:00.000Z"
+                    durationHours: 24
+                  pricing:
+                    basePrice: 1000000
+                    inclusions:
+                      - name: Generator
+                        quantity: 1
+                        maxQuantity: 1
+                      - name: House keeping
+                        quantity: 15
+                        maxQuantity: 15
+                    addons:
+                      - name: Chairs
+                        quantity: 10
+                        unitPrice: 100
+                      - name: Suite Rooms
+                        quantity: 2
+                        unitPrice: 4000
+                    gstRate: 0.18
+                    discount: 0
+                    totals:
+                      venueBase: 1000000
+                      venueGst: 180000
+                      addonTotal: 9000
+                      addonGst: 1620
+                      subtotal: 1190620
+                      discount: 0
+                      total: 1190620
+                  draft: true
+                  confirmed: false
+              spaceBuyoutDraft:
+                summary: Space buyout (draft)
+                value:
+                  bookingType: space_buyout
+                  spaceId: "SPACE_OBJECT_ID"
+                  eventWindow:
+                    startAt: "2026-03-11T07:31:00.000Z"
+                    endAt: "2026-03-11T19:31:00.000Z"
+                    durationHours: 12
+                  pricing:
+                    basePrice: 300000
+                    inclusions:
+                      - name: WiFi
+                        quantity: 1
+                    addons:
+                      - name: Extra projector
+                        quantity: 1
+                        unitPrice: 5000
+                    gstRate: 0.18
+                    discount: 10000
+                    totals:
+                      venueBase: 300000
+                      venueGst: 54000
+                      addonTotal: 5000
+                      addonGst: 900
+                      subtotal: 359900
+                      discount: 10000
+                      total: 349900
+                  draft: true
+                  confirmed: false
+      responses:
+        "201":
+          description: Quote created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      tags: [Quotes]
+      summary: List quotes for a lead
+      description: |
+        List all quotes for a specific lead. Supports `?status=`, `?draft=true/false`, `?confirmed=true` filters.
+        Response includes populated `lead`, `venue`, `space`, and `createdByUser`.
+      operationId: getQuotesForLead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [draft, shared, accepted, rejected] }
+        - name: draft
+          in: query
+          required: false
+          schema: { type: string, enum: ["true", "false"] }
+        - name: confirmed
+          in: query
+          required: false
+          schema: { type: string, enum: ["true"] }
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/leads/{leadId}/quotes/{quoteId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: quoteId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Quotes]
+      summary: Get quote by ID (under lead)
+      operationId: getQuoteByIdForLead
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quote details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Quotes]
+      summary: Update quote (under lead)
+      description: |
+        Update any quote field. Use `"confirmed": true, "draft": false` to confirm a draft.
+        Flags invariant is enforced server-side.
+      operationId: patchQuoteForLead
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteUpdateRequest"
+            examples:
+              confirmOnly:
+                summary: Confirm a draft
+                value:
+                  confirmed: true
+                  draft: false
+              confirmWithPricing:
+                summary: Confirm with updated pricing
+                value:
+                  eventWindow:
+                    startAt: "2026-03-11T07:31:00.000Z"
+                    endAt: "2026-03-12T07:31:00.000Z"
+                    durationHours: 24
+                  pricing:
+                    basePrice: 1000000
+                    inclusions:
+                      - name: Generator
+                        quantity: 1
+                        maxQuantity: 1
+                    addons:
+                      - name: Chairs
+                        quantity: 10
+                        unitPrice: 100
+                    gstRate: 0.18
+                    discount: 5000
+                    totals:
+                      venueBase: 1000000
+                      venueGst: 180000
+                      addonTotal: 1000
+                      addonGst: 180
+                      subtotal: 1181180
+                      discount: 5000
+                      total: 1176180
+                  confirmed: true
+                  draft: false
+      responses:
+        "200":
+          description: Quote updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Quotes]
+      summary: Delete quote (under lead)
+      operationId: deleteQuoteForLead
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quote deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/venues/{venueId}/quotes:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Quotes]
+      summary: List all quotes for a venue
+      description: All quotes across all leads for the venue. Same filters as lead-level list.
+      operationId: getQuotesForVenue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [draft, shared, accepted, rejected] }
+        - name: draft
+          in: query
+          required: false
+          schema: { type: string, enum: ["true", "false"] }
+        - name: confirmed
+          in: query
+          required: false
+          schema: { type: string, enum: ["true"] }
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/quotes/{quoteId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: quoteId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Quotes]
+      summary: Get quote by ID (venue-level)
+      operationId: getQuoteByIdForVenue
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quote details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Quotes]
+      summary: Update quote (venue-level)
+      operationId: patchQuoteForVenue
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteUpdateRequest"
+      responses:
+        "200":
+          description: Quote updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Quotes]
+      summary: Delete quote (venue-level)
+      operationId: deleteQuoteForVenue
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quote deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessDataSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # -------- Gallery --------
   /api/venues/{venueId}/gallery:
     parameters:
@@ -1841,6 +2200,100 @@ components:
         data:
           type: object
           description: Response payload (object or array)
+
+    QuoteEventWindow:
+      type: object
+      required: [startAt, endAt, durationHours]
+      properties:
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        durationHours: { type: number, example: 24 }
+
+    QuoteInclusion:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, example: Generator }
+        quantity: { type: number, default: 1 }
+        maxQuantity: { type: number, nullable: true }
+
+    QuoteAddon:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, example: Chairs }
+        quantity: { type: number, default: 1 }
+        unitPrice: { type: number, example: 100 }
+
+    QuoteTotals:
+      type: object
+      properties:
+        venueBase: { type: number }
+        venueGst: { type: number }
+        addonTotal: { type: number }
+        addonGst: { type: number }
+        subtotal: { type: number }
+        discount: { type: number }
+        total: { type: number }
+
+    QuotePricing:
+      type: object
+      required: [basePrice]
+      properties:
+        basePrice: { type: number, example: 1000000 }
+        inclusions:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteInclusion" }
+        addons:
+          type: array
+          items: { $ref: "#/components/schemas/QuoteAddon" }
+        gstRate: { type: number, default: 0.18, example: 0.18 }
+        discount: { type: number, default: 0 }
+        totals:
+          $ref: "#/components/schemas/QuoteTotals"
+
+    QuoteCreateRequest:
+      type: object
+      required: [bookingType, eventWindow, pricing]
+      description: |
+        `leadId` and `venueId` come from the URL path. `createdBy` is auto-set from JWT.
+        Set `draft: true` for save-as-draft, `confirmed: true` for confirm-on-create.
+      properties:
+        bookingType:
+          type: string
+          enum: [venue_buyout, space_buyout]
+        spaceId:
+          type: string
+          description: Required when bookingType is space_buyout
+        eventWindow:
+          $ref: "#/components/schemas/QuoteEventWindow"
+        pricing:
+          $ref: "#/components/schemas/QuotePricing"
+        draft:
+          type: boolean
+          default: true
+        confirmed:
+          type: boolean
+          default: false
+
+    QuoteUpdateRequest:
+      type: object
+      minProperties: 1
+      description: Partial update. Use `confirmed: true, draft: false` to confirm a draft.
+      properties:
+        bookingType:
+          type: string
+          enum: [venue_buyout, space_buyout]
+        spaceId: { type: string, nullable: true }
+        eventWindow:
+          $ref: "#/components/schemas/QuoteEventWindow"
+        pricing:
+          $ref: "#/components/schemas/QuotePricing"
+        draft: { type: boolean }
+        confirmed: { type: boolean }
+        status:
+          type: string
+          enum: [draft, shared, accepted, rejected]
 
     LeadCreateRequest:
       type: object
