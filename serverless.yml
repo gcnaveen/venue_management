@@ -358,6 +358,26 @@ functions:
           path: /api/venues/{venueId}/pricing
           method: delete
 
+  # Leads: enquiries / event leads per venue
+  leadsApi:
+    handler: src/handlers/leadsApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/leads
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/leads
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}
+          method: delete
+
   # Gallery: albums with photos per venue
   galleryApi:
     handler: src/handlers/galleryApi.handler

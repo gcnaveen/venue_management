@@ -499,6 +499,120 @@ Only keys under the `uploads/` prefix are allowed (prevents deleting arbitrary b
 
 ---
 
+## Leads
+
+Event enquiries / leads per venue. Created by Incharge or Admin. Each lead tracks event details, contact info, and a pipeline status.
+
+**Event types:** `wedding`, `reception`, `engagement`, `birthday`, `corporate`, `conference`, `exhibition`, `other`  
+**Lead statuses:** `new` → `contacted` → `followup` → `visited` → `negotiation` → `won` / `lost`
+
+---
+
+### Create lead  
+`POST /api/venues/{venueId}/leads`  
+Auth: Admin or Incharge. `createdBy` is auto-set to the authenticated user.
+
+**Request body (JSON)**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| eventType | string | ✓ | One of the event types above |
+| eventTypeOther | string | | Custom name when eventType is `other` |
+| specialDay.startAt | datetime | ✓ | Event start (ISO 8601) |
+| specialDay.endAt | datetime | ✓ | Event end (ISO 8601) |
+| specialDay.durationHours | number | ✓ | Duration in hours |
+| expectedGuests | number | | Expected guest count |
+| contact.name | string | ✓ | Contact person name |
+| contact.phone | string | ✓ | Contact phone |
+| contact.altPhone | string | | Alternate phone |
+| notes | string | | Free-text notes |
+
+**Example (wedding)**
+```json
+{
+  "eventType": "wedding",
+  "specialDay": {
+    "startAt": "2026-03-20T10:30:00.000Z",
+    "endAt": "2026-03-20T22:30:00.000Z",
+    "durationHours": 12
+  },
+  "expectedGuests": 250,
+  "contact": {
+    "name": "Rahul Sharma",
+    "phone": "+919876543210"
+  }
+}
+```
+
+**Example (custom event)**
+```json
+{
+  "eventType": "other",
+  "eventTypeOther": "Baby shower",
+  "specialDay": {
+    "startAt": "2026-03-20T10:30:00.000Z",
+    "endAt": "2026-03-20T22:30:00.000Z",
+    "durationHours": 12
+  },
+  "expectedGuests": 250,
+  "contact": {
+    "name": "Rahul Sharma",
+    "phone": "+919876543210",
+    "altPhone": "+919812345678"
+  }
+}
+```
+
+**Responses:** 201, 400, 401, 403.
+
+---
+
+### List leads  
+`GET /api/venues/{venueId}/leads`  
+Auth: Admin or Incharge.
+
+**Query params:** `?status=new` (optional filter by status).
+
+Response includes populated `createdByUser` and `venue` objects via aggregation.
+
+**Responses:** 200 (array of leads), 401, 403.
+
+---
+
+### Get lead by ID  
+`GET /api/venues/{venueId}/leads/{leadId}`  
+Auth: Admin or Incharge. Includes populated `createdByUser` and `venue`.
+
+**Responses:** 200, 401, 403, 404.
+
+---
+
+### Update lead  
+`PATCH /api/venues/{venueId}/leads/{leadId}`  
+Auth: Admin or Incharge.
+
+**Request body (JSON)** — any combination of: eventType, eventTypeOther, specialDay, expectedGuests, contact, status, notes, metadata.
+
+**Example (update status)**
+```json
+{
+  "status": "contacted",
+  "notes": "Called the client, interested in 24hr package"
+}
+```
+
+**Responses:** 200, 400, 401, 403, 404.
+
+---
+
+### Delete lead  
+`DELETE /api/venues/{venueId}/leads/{leadId}`  
+Auth: Admin or Incharge.
+
+**Responses:** 200, 401, 403, 404.
+
+---
+
 ## Gallery (Albums + Photos)
 
 One venue can have multiple albums. Each album contains multiple photos (stored as sub-documents).
