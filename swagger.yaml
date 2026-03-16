@@ -1144,6 +1144,70 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+    get:
+      tags: [Leads]
+      summary: List leads
+      description: |
+        List all leads for the venue. Optionally filter by `status` query param.
+        Response includes populated `createdByUser` and `venue` objects.
+      operationId: getLeads
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: "Filter by lead status"
+          schema:
+            type: string
+            enum: [new, contacted, followup, visited, negotiation, won, lost]
+      responses:
+        "200":
+          description: List of leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Lead"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/leads/confirmed:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Leads]
+      summary: List confirmed leads
+      description: |
+        Returns all leads for the venue that have at least one confirmed quote (Quote.confirmed = true).
+      operationId: getConfirmedLeads
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of confirmed leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Lead"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # -------- Payments (reminders + received payments per lead) --------
   /api/venues/{venueId}/leads/{leadId}/payment-reminders:
     parameters:

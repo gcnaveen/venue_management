@@ -167,6 +167,55 @@ async function getLeads(event) {
   return res.success(list);
 }
 
+async function getConfirmedLeads(event) {
+  auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
+  const { venueId } = parsePathParams(event);
+  if (!venueId) return res.error('venueId required', 400);
+  await assertVenueAccess(event, venueId);
+
+  const vid = toObjectId(venueId);
+  if (!vid) return res.error('Invalid venueId', 400);
+
+  // "Confirmed leads" = leads for this venue that have at least one confirmed quote.
+  const list = await Lead.aggregate([
+    { $match: { venueId: vid } },
+    {
+      $lookup: {
+        from: 'quotes',
+        localField: '_id',
+        foreignField: 'leadId',
+        pipeline: [{ $match: { confirmed: true } }],
+        as: 'confirmedQuotes',
+      },
+    },
+    { $addFields: { confirmedQuoteCount: { $size: '$confirmedQuotes' } } },
+    { $match: { confirmedQuoteCount: { $gt: 0 } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'createdBy',
+        foreignField: '_id',
+        pipeline: [{ $project: { password: 0 } }],
+        as: 'createdByUser',
+      },
+    },
+    { $unwind: { path: '$createdByUser', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'venues',
+        localField: 'venueId',
+        foreignField: '_id',
+        as: 'venue',
+      },
+    },
+    { $unwind: { path: '$venue', preserveNullAndEmptyArrays: true } },
+    { $project: { confirmedQuotes: 0, confirmedQuoteCount: 0 } },
+  ]);
+
+  return res.success(list);
+}
+
 async function getLeadById(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
   const { venueId, leadId } = parsePathParams(event);
@@ -276,6 +325,7 @@ async function deleteLead(event) {
 const routes = [
   { method: 'POST', path: '/venues/{venueId}/leads', fn: postLead },
   { method: 'GET', path: '/venues/{venueId}/leads', fn: getLeads },
+  { method: 'GET', path: '/venues/{venueId}/leads/confirmed', fn: getConfirmedLeads },
   { method: 'GET', path: '/venues/{venueId}/leads/{leadId}', fn: getLeadById },
   { method: 'PATCH', path: '/venues/{venueId}/leads/{leadId}', fn: patchLead },
   { method: 'DELETE', path: '/venues/{venueId}/leads/{leadId}', fn: deleteLead },

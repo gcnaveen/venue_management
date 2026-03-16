@@ -800,6 +800,16 @@ Response includes populated `createdByUser` and `venue` objects via aggregation.
 
 ---
 
+### List confirmed leads  
+`GET /api/venues/{venueId}/leads/confirmed`  
+Auth: Admin or Incharge.
+
+Returns all leads for the venue that have at least one **confirmed quote** (`Quote.confirmed === true`). Useful for dashboards showing only booked / confirmed business.
+
+**Responses:** 200 (array of leads), 401, 403.
+
+---
+
 ### Get lead by ID  
 `GET /api/venues/{venueId}/leads/{leadId}`  
 Auth: Admin or Incharge. Includes populated `createdByUser` and `venue`.

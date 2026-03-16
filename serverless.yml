@@ -403,6 +403,9 @@ functions:
           path: /api/venues/{venueId}/leads
           method: get
       - httpApi:
+          path: /api/venues/{venueId}/leads/confirmed
+          method: get
+      - httpApi:
           path: /api/venues/{venueId}/leads/{leadId}
           method: get
       - httpApi:
