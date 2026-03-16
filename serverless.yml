@@ -552,6 +552,26 @@ functions:
           path: /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}
           method: delete
 
+  # Vendors per venue
+  vendorsApi:
+    handler: src/handlers/vendorsApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/vendors
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/vendors
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/vendors/{vendorId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/vendors/{vendorId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/vendors/{vendorId}
+          method: delete
+
   testApi:
     handler: src/handlers/testApi.handler
     events:

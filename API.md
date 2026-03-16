@@ -226,6 +226,88 @@ Admin: all venues; Incharge: only assigned venue.
 
 ---
 
+### Vendors per venue
+
+Each venue can have multiple external vendors/partners (photographers, decorators, caterers, etc.).
+
+**Endpoints**
+
+| Action        | Method | Endpoint                             |
+|---------------|--------|--------------------------------------|
+| List vendors  | GET    | `/api/venues/{venueId}/vendors`     |
+| Create vendor | POST   | `/api/venues/{venueId}/vendors`     |
+| Get vendor    | GET    | `/api/venues/{venueId}/vendors/{vendorId}` |
+| Update vendor | PATCH  | `/api/venues/{venueId}/vendors/{vendorId}` |
+| Delete vendor | DELETE | `/api/venues/{venueId}/vendors/{vendorId}` |
+
+All routes are **venue-scoped** and require Admin or Incharge auth. Incharge can only access their assigned venue.
+
+#### Vendor fields
+
+| Field       | Type     | Required | Description |
+|------------|----------|----------|-------------|
+| `_id`      | ObjectId | auto     | Vendor id |
+| `venueId`  | ObjectId | auto     | Venue reference |
+| `name`     | string   | ✓        | Vendor name |
+| `category` | string   |          | e.g. `photography`, `decor`, `catering` |
+| `contactName` | string|          | Contact person name |
+| `phone`    | string   |          | Contact phone |
+| `email`    | string   |          | Contact email |
+| `notes`    | string   |          | Extra notes |
+| `isActive` | boolean  |          | Default `true` |
+
+#### List vendors  
+`GET /api/venues/{venueId}/vendors`  
+**Auth:** Admin or Incharge.
+
+Optional query params:
+
+- `isActive=true|false`
+- `category=photography`
+
+#### Create vendor  
+`POST /api/venues/{venueId}/vendors`  
+**Auth:** Admin or Incharge.
+
+**Request body:**
+```json
+{
+  "name": "Photographer Raj",
+  "category": "photography",
+  "contactName": "Raj",
+  "phone": "+919876543210",
+  "email": "raj@example.com",
+  "notes": "Specializes in candid weddings",
+  "isActive": true
+}
+```
+
+**Response:** 201 with created vendor.
+
+#### Get vendor by ID  
+`GET /api/venues/{venueId}/vendors/{vendorId}`  
+**Auth:** Admin or Incharge.
+
+#### Update vendor  
+`PATCH /api/venues/{venueId}/vendors/{vendorId}`  
+**Auth:** Admin or Incharge.
+
+**Example:**
+```json
+{
+  "name": "Photographer Rajesh",
+  "phone": "+919876500000",
+  "notes": "Updated phone number"
+}
+```
+
+#### Delete vendor  
+`DELETE /api/venues/{venueId}/vendors/{vendorId}`  
+**Auth:** Admin or Incharge.  
+Removes the vendor entry; existing commissions/payments are unaffected.
+
+---
+
 ## Spaces (multiple spaces per venue)
 
 One venue can have many spaces. Admin can manage any venue’s spaces; Incharge only their assigned venue.
