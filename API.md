@@ -817,6 +817,51 @@ If `bookingType` is not provided, confirmed leads across **both** booking types 
 
 ---
 
+### Confirmed events stats  
+`GET /api/venues/{venueId}/leads/confirmed/stats`  
+Auth: Admin or Incharge.
+
+Returns aggregated stats for **confirmed events** (leads that have at least one confirmed quote).
+
+**Query params (optional):**
+
+- `year` — e.g. `2026`. When provided, limits stats to that calendar year (based on `Quote.eventWindow.startAt`).
+- `month` — 1–12. When provided along with `year`, limits stats to that specific month.
+
+If `year` is omitted, stats are calculated across **all** years and `occupancyPercent` will be `null`.
+
+**Response shape (JSON)**
+
+- `totalBookings` — total number of confirmed bookings (confirmed quotes) in the period.
+- `totalRevenue` — sum of `Quote.pricing.totals.total` for all confirmed quotes in the period.
+- `totalHoursBooked` — sum of `Quote.eventWindow.durationHours` for all confirmed quotes in the period.
+- `totalEventDays` — total event days, derived from each quote’s `eventWindow` duration.
+- `occupancyPercent` — `(totalEventDays / totalDaysInPeriod) * 100`, capped at 100. `null` when `year`/`month` are not provided.
+- `period.year` / `period.month` — echo of the applied period filters (or `null`).
+
+**Example:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalBookings": 8,
+    "totalRevenue": 950000,
+    "totalHoursBooked": 72,
+    "totalEventDays": 18,
+    "occupancyPercent": 60.0,
+    "period": {
+      "year": 2026,
+      "month": 3
+    }
+  }
+}
+```
+
+**Responses:** 200, 400, 401, 403.
+
+---
+
 ### Get lead by ID  
 `GET /api/venues/{venueId}/leads/{leadId}`  
 Auth: Admin or Incharge. Includes populated `createdByUser` and `venue`.

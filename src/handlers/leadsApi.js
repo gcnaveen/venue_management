@@ -226,6 +226,140 @@ async function getConfirmedLeads(event) {
   return res.success(list);
 }
 
+async function getConfirmedStats(event) {
+  auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
+  const { venueId } = parsePathParams(event);
+  if (!venueId) return res.error('venueId required', 400);
+  await assertVenueAccess(event, venueId);
+
+  const vid = toObjectId(venueId);
+  if (!vid) return res.error('Invalid venueId', 400);
+
+  const qs = event.queryStringParameters || {};
+  const year = qs.year ? Number(qs.year) : null;
+  const month = qs.month ? Number(qs.month) : null; // 1-12
+
+  if (year && (!Number.isInteger(year) || year < 1970 || year > 3000)) {
+    return res.error('year must be a valid integer (e.g. 2026)', 400);
+  }
+  if (month && (!Number.isInteger(month) || month < 1 || month > 12)) {
+    return res.error('month must be an integer between 1 and 12', 400);
+  }
+
+  let startDate = null;
+  let endDate = null;
+  if (year) {
+    if (month) {
+      startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    } else {
+      startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0, 0));
+    }
+  }
+
+  const dateMatch = {};
+  if (startDate) dateMatch.$gte = startDate;
+  if (endDate) dateMatch.$lt = endDate;
+
+  const pipeline = [
+    { $match: { venueId: vid } },
+    {
+      $lookup: {
+        from: 'quotes',
+        localField: '_id',
+        foreignField: 'leadId',
+        pipeline: [
+          { $match: { confirmed: true } },
+          ...(startDate || endDate
+            ? [
+                {
+                  $match: {
+                    'eventWindow.startAt': dateMatch,
+                  },
+                },
+              ]
+            : []),
+        ],
+        as: 'confirmedQuotes',
+      },
+    },
+    {
+      $addFields: {
+        confirmedQuotesCount: { $size: '$confirmedQuotes' },
+      },
+    },
+    { $match: { confirmedQuotesCount: { $gt: 0 } } },
+    {
+      $project: {
+        confirmedQuotesCount: 1,
+        confirmedQuotes: 1,
+        specialDay: 1,
+      },
+    },
+    {
+      $unwind: '$confirmedQuotes',
+    },
+    {
+      $group: {
+        _id: null,
+        totalBookings: { $sum: 1 },
+        totalRevenue: { $sum: '$confirmedQuotes.pricing.totals.total' },
+        totalHoursBooked: { $sum: '$confirmedQuotes.eventWindow.durationHours' },
+        totalEventDays: {
+          $sum: {
+            $ceil: {
+              $divide: [
+                {
+                  $subtract: ['$confirmedQuotes.eventWindow.endAt', '$confirmedQuotes.eventWindow.startAt'],
+                },
+                1000 * 60 * 60 * 24,
+              ],
+            },
+          },
+        },
+      },
+    },
+  ];
+
+  const agg = await Lead.aggregate(pipeline);
+  const stats = agg[0] || {
+    totalBookings: 0,
+    totalRevenue: 0,
+    totalHoursBooked: 0,
+    totalEventDays: 0,
+  };
+
+  const periodDays = (() => {
+    if (!year) return null;
+    if (month) {
+      const start = new Date(Date.UTC(year, month - 1, 1));
+      const end = new Date(Date.UTC(year, month, 1));
+      return Math.round((end - start) / (1000 * 60 * 60 * 24));
+    }
+    const start = new Date(Date.UTC(year, 0, 1));
+    const end = new Date(Date.UTC(year + 1, 0, 1));
+    return Math.round((end - start) / (1000 * 60 * 60 * 24));
+  })();
+
+  let occupancyPercent = null;
+  if (periodDays && stats.totalEventDays > 0) {
+    occupancyPercent = Math.min(100, (stats.totalEventDays / periodDays) * 100);
+  }
+
+  return res.success({
+    totalBookings: stats.totalBookings,
+    totalRevenue: stats.totalRevenue,
+    totalHoursBooked: stats.totalHoursBooked,
+    totalEventDays: stats.totalEventDays,
+    occupancyPercent,
+    period: {
+      year: year || null,
+      month: month || null,
+    },
+  });
+}
+
 async function getLeadById(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
   const { venueId, leadId } = parsePathParams(event);
@@ -336,6 +470,7 @@ const routes = [
   { method: 'POST', path: '/venues/{venueId}/leads', fn: postLead },
   { method: 'GET', path: '/venues/{venueId}/leads', fn: getLeads },
   { method: 'GET', path: '/venues/{venueId}/leads/confirmed', fn: getConfirmedLeads },
+   { method: 'GET', path: '/venues/{venueId}/leads/confirmed/stats', fn: getConfirmedStats },
   { method: 'GET', path: '/venues/{venueId}/leads/{leadId}', fn: getLeadById },
   { method: 'PATCH', path: '/venues/{venueId}/leads/{leadId}', fn: patchLead },
   { method: 'DELETE', path: '/venues/{venueId}/leads/{leadId}', fn: deleteLead },

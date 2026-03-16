@@ -1220,6 +1220,87 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/venues/{venueId}/leads/confirmed/stats:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      tags: [Leads]
+      summary: Confirmed events stats
+      description: |
+        Returns aggregate stats for confirmed events for a venue, based on confirmed quotes.
+
+        You can filter by calendar period using the `year` and `month` query parameters, which are applied to the quote's `eventWindow.startAt`:
+        - `year=2026` — stats for the whole year 2026
+        - `year=2026&month=3` — stats for March 2026 only
+
+        Occupancy percentage is computed as:
+        `(totalEventDays / totalDaysInPeriod) * 100`, capped at 100.
+      operationId: getConfirmedStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 2026
+          description: Calendar year to filter by. If omitted, stats are calculated across all years.
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 3
+          description: Calendar month (1-12). Requires `year`. If omitted, the whole year is used.
+      responses:
+        "200":
+          description: Confirmed events stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      totalBookings:
+                        type: integer
+                        example: 12
+                      totalRevenue:
+                        type: number
+                        example: 1500000
+                      totalHoursBooked:
+                        type: number
+                        example: 96
+                      totalEventDays:
+                        type: number
+                        example: 24
+                      occupancyPercent:
+                        type: number
+                        nullable: true
+                        example: 65.5
+                        description: |
+                          Occupancy percentage for the selected period. Null when year/month are not provided.
+                      period:
+                        type: object
+                        properties:
+                          year:
+                            type: integer
+                            nullable: true
+                          month:
+                            type: integer
+                            nullable: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   # -------- Payments (reminders + received payments per lead) --------
   /api/venues/{venueId}/leads/{leadId}/payment-reminders:
     parameters:
