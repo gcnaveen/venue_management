@@ -1187,9 +1187,21 @@ paths:
       summary: List confirmed leads
       description: |
         Returns all leads for the venue that have at least one confirmed quote (Quote.confirmed = true).
+
+        Optionally filter by booking type using the `bookingType` query parameter:
+        - `venue_buyout`
+        - `space_buyout`
       operationId: getConfirmedLeads
       security:
         - bearerAuth: []
+      parameters:
+        - name: bookingType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [venue_buyout, space_buyout]
+          description: Filter confirmed leads by quote booking type. If omitted, includes all booking types.
       responses:
         "200":
           description: List of confirmed leads

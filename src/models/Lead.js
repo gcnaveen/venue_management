@@ -10,6 +10,7 @@ const EVENT_TYPES = [
   'corporate',
   'conference',
   'exhibition',
+  'beegaraoota',
   'other',
 ];
 

@@ -4,6 +4,7 @@ const { connect } = require('../lib/db');
 const auth = require('../lib/auth');
 const res = require('../lib/response');
 const Lead = require('../models/Lead');
+const Quote = require('../models/Quote');
 const mongoose = require('mongoose');
 
 function getPath(event) {
@@ -176,6 +177,15 @@ async function getConfirmedLeads(event) {
   const vid = toObjectId(venueId);
   if (!vid) return res.error('Invalid venueId', 400);
 
+  const qs = event.queryStringParameters || {};
+  const bookingType = qs.bookingType ? String(qs.bookingType).trim() : '';
+  if (bookingType && !Quote.BOOKING_TYPES.includes(bookingType)) {
+    return res.error(`bookingType must be one of: ${Quote.BOOKING_TYPES.join(', ')}`, 400);
+  }
+
+  const confirmedQuoteMatch = { confirmed: true };
+  if (bookingType) confirmedQuoteMatch.bookingType = bookingType;
+
   // "Confirmed leads" = leads for this venue that have at least one confirmed quote.
   const list = await Lead.aggregate([
     { $match: { venueId: vid } },
@@ -184,7 +194,7 @@ async function getConfirmedLeads(event) {
         from: 'quotes',
         localField: '_id',
         foreignField: 'leadId',
-        pipeline: [{ $match: { confirmed: true } }],
+        pipeline: [{ $match: confirmedQuoteMatch }],
         as: 'confirmedQuotes',
       },
     },

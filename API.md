@@ -806,6 +806,13 @@ Auth: Admin or Incharge.
 
 Returns all leads for the venue that have at least one **confirmed quote** (`Quote.confirmed === true`). Useful for dashboards showing only booked / confirmed business.
 
+You can optionally filter by **booking type** (based on the confirmed quotes for each lead):
+
+- `bookingType=venue_buyout` — returns only leads that have at least one confirmed quote with `bookingType = "venue_buyout"`.
+- `bookingType=space_buyout` — returns only leads that have at least one confirmed quote with `bookingType = "space_buyout"`.
+
+If `bookingType` is not provided, confirmed leads across **both** booking types are returned.
+
 **Responses:** 200 (array of leads), 401, 403.
 
 ---
