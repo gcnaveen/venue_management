@@ -483,6 +483,75 @@ functions:
           path: /api/venues/{venueId}/profile/contact-persons/{contactPersonId}
           method: delete
 
+  # Religious calendar: global auspicious days (admin-managed)
+  calendarApi:
+    handler: src/handlers/calendarApi.handler
+    events:
+      - httpApi:
+          path: /api/calendar-days/bulk
+          method: post
+      - httpApi:
+          path: /api/calendar-days
+          method: post
+      - httpApi:
+          path: /api/calendar-days
+          method: get
+      - httpApi:
+          path: /api/calendar-days/{id}
+          method: patch
+      - httpApi:
+          path: /api/calendar-days/{id}
+          method: delete
+
+  # Payments & payment reminders per lead
+  paymentsApi:
+    handler: src/handlers/paymentsApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payment-reminders
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payment-reminders
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payment-reminders/{reminderId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payment-reminders/{reminderId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payment-reminders/{reminderId}
+          method: delete
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payments
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payments
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}
+          method: delete
+
+  # Commissions per lead (inflow + outflow)
+  commissionsApi:
+    handler: src/handlers/commissionsApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/commissions
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/commissions
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}
+          method: delete
+
   testApi:
     handler: src/handlers/testApi.handler
     events:

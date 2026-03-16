@@ -21,7 +21,7 @@ function parseBody(event) {
 }
 
 function parsePathParams(event) {
-  const p = event.pathParameters || {};
+  const p = event.pathParameters || {}; 
   return {
     venueId: p.venueId ?? p.venueid,
     leadId: p.leadId ?? p.leadid,

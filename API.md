@@ -752,6 +752,367 @@ Auth: Admin or Incharge.
 
 ---
 
+## Payments (reminders + received)
+
+Lead-level payment tracking: **expected payments** (reminders) and **received payments**. All routes are venue + lead scoped.
+
+### Payment reminder schema
+
+| Field           | Type     | Required | Description |
+|----------------|----------|----------|-------------|
+| `_id`          | ObjectId | auto     | Reminder id |
+| `venueId`      | ObjectId | auto     | Venue reference |
+| `leadId`       | ObjectId | auto     | Lead reference |
+| `expectedAmount` | number | ✓        | Expected amount (INR) |
+| `expectedDate` | date     | ✓        | Expected date (YYYY-MM-DD or ISO) |
+| `status`       | string   |          | `pending` or `received` |
+| `paymentId`    | ObjectId |          | Linked payment id when received |
+
+### Payment schema
+
+| Field          | Type     | Required | Description |
+|----------------|----------|----------|-------------|
+| `_id`          | ObjectId | auto     | Payment id |
+| `venueId`      | ObjectId | auto     | Venue reference |
+| `leadId`       | ObjectId | auto     | Lead reference |
+| `amount`       | number   | ✓        | Amount received (INR) |
+| `method`       | string   | ✓        | `cash` or `account` |
+| `receivedAt`   | datetime | ✓        | When payment was received |
+| `receivedByName` | string | ✓        | Staff member who received the payment |
+| `givenByName`  | string   | ✓        | Guest / client who gave the payment |
+| `notes`        | string   |          | Free text (NEFT ref, UPI id, etc.) |
+| `reminderId`   | ObjectId |          | Link to `PaymentReminder` when created from reminder |
+| `status`       | string   | auto     | `active` or `deleted` (soft delete) |
+| `createdBy`    | ObjectId | auto     | User who created the payment (from JWT) |
+
+---
+
+### List payment reminders  
+`GET /api/venues/{venueId}/leads/{leadId}/payment-reminders`  
+Auth: Admin or Incharge.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "64a1b2c3d4e5f6789012345",
+      "venueId": "69afc2df3235f0510b471102",
+      "leadId": "69b11a75b014e71dc485f735",
+      "expectedAmount": 691210,
+      "expectedDate": "2026-01-09T00:00:00.000Z",
+      "status": "pending",
+      "paymentId": null,
+      "createdAt": "2026-03-11T10:00:00.000Z",
+      "updatedAt": "2026-03-11T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Create payment reminder  
+`POST /api/venues/{venueId}/leads/{leadId}/payment-reminders`  
+Auth: Admin or Incharge.
+
+**Request body:**
+```json
+{
+  "expectedAmount": 691210,
+  "expectedDate": "2026-01-09"
+}
+```
+
+**Responses:** 201, 400, 401, 403, 404.
+
+### Update payment reminder  
+`PATCH /api/venues/{venueId}/leads/{leadId}/payment-reminders/{reminderId}`  
+Auth: Admin or Incharge.
+
+**Request body (any combination):**
+```json
+{
+  "expectedAmount": 700000,
+  "expectedDate": "2026-01-15"
+}
+```
+
+### Delete payment reminder  
+`DELETE /api/venues/{venueId}/leads/{leadId}/payment-reminders/{reminderId}`  
+Auth: Admin or Incharge.  
+Soft rules: deletes the reminder document; linked payments (if any) remain.
+
+**Response:**  
+```json
+{ "success": true, "data": { "deleted": true } }
+```
+
+---
+
+### List received payments  
+`GET /api/venues/{venueId}/leads/{leadId}/payments`  
+Auth: Admin or Incharge.
+
+**Query params (optional):**
+
+| Param  | Type     | Description |
+|--------|----------|-------------|
+| `from` | datetime | Only payments with `receivedAt >= from` |
+| `to`   | datetime | Only payments with `receivedAt <= to` |
+| `method` | string | `cash` or `account` |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "64a1b2c3d4e5f6789012345a",
+      "venueId": "69afc2df3235f0510b471102",
+      "leadId": "69b11a75b014e71dc485f735",
+      "amount": 250000,
+      "method": "account",
+      "receivedAt": "2026-03-12T10:30:00.000Z",
+      "receivedByName": "Kumar",
+      "givenByName": "Ramesh",
+      "notes": "NEFT AXIS123456",
+      "reminderId": "64a1b2c3d4e5f6789012345b",
+      "createdBy": "69afbd219ab76559ecbb2f1a",
+      "createdAt": "2026-03-12T10:31:00.000Z",
+      "updatedAt": "2026-03-12T10:31:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### Record received payment (manual or from reminder)  
+`POST /api/venues/{venueId}/leads/{leadId}/payments`  
+Auth: Admin or Incharge.
+
+**Manual add (\"Add received payments\" tab):**
+```json
+{
+  "amount": 300000,
+  "method": "cash",
+  "receivedAt": "2026-03-15T09:00:00.000Z",
+  "receivedByName": "Anand",
+  "givenByName": "Bride family",
+  "notes": "Advance amount collected at venue"
+}
+```
+
+**From reminder (\"Payment reminder → Received\"):**
+```json
+{
+  "amount": 250000,
+  "method": "account",
+  "receivedAt": "2026-03-12T10:30:00.000Z",
+  "receivedByName": "Kumar",
+  "givenByName": "Ramesh",
+  "notes": "NEFT ref AXIS123456",
+  "reminderId": "64a1b2c3d4e5f6789012345b"
+}
+```
+
+When `reminderId` is provided and valid, the backend:
+- creates the payment, then
+- updates the reminder to `status: "received"` and sets `paymentId` to the new payment `_id`.
+
+---
+
+### Update payment (Edit)  
+`PATCH /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}`  
+Auth: Admin or Incharge.
+
+**Request body (partial update):**
+```json
+{
+  "amount": 300000,
+  "method": "account",
+  "receivedAt": "2026-03-16T11:00:00.000Z",
+  "receivedByName": "Anand",
+  "givenByName": "Bride family",
+  "notes": "Updated: amount adjusted after discussion"
+}
+```
+
+---
+
+### Delete payment  
+`DELETE /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}`  
+Auth: Admin or Incharge.  
+Implements **soft delete**: sets `status: "deleted"` so history is preserved.
+
+If the payment was linked to a reminder, the backend will:
+- reset the reminder to `status: "pending"`, and  
+- clear its `paymentId`.
+
+**Response:**
+```json
+{ "success": true, "data": { "deleted": true } }
+```
+
+---
+
+## Commissions (inflow + outflow)
+
+Commission cashflows per lead. Tracks **outflow** commissions you pay to vendors and **inflow** commissions you receive from partners.
+
+### Commission schema
+
+| Field       | Type     | Required | Description |
+|------------|----------|----------|-------------|
+| `_id`      | ObjectId | auto     | Commission id |
+| `venueId`  | ObjectId | auto     | Venue reference |
+| `leadId`   | ObjectId | auto     | Lead reference |
+| `direction`| string   | ✓        | `outflow` (you pay) or `inflow` (you receive) |
+| `vendorName` | string | ✓        | Vendor / partner name |
+| `amount`   | number   | ✓        | Commission amount (INR) |
+| `method`   | string   | ✓        | `cash` or `account` |
+| `givenDate`| datetime | ✓        | Date the commission was paid/received (ISO) |
+| `notes`    | string   |          | Optional notes |
+| `createdBy`| ObjectId | auto     | User who created the entry (from JWT) |
+| `status`   | string   | auto     | `active` or `deleted` (soft delete) |
+
+---
+
+### List commissions  
+`GET /api/venues/{venueId}/leads/{leadId}/commissions`  
+Auth: Admin or Incharge.
+
+**Query params (optional):**
+
+| Param      | Type     | Description |
+|-----------|----------|-------------|
+| `direction` | string | `outflow` or `inflow` |
+| `from`    | datetime | Only commissions with `givenDate >= from` |
+| `to`      | datetime | Only commissions with `givenDate <= to` |
+| `method`  | string   | `cash` or `account` |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "64b1b2c3d4e5f6789012345a",
+      "venueId": "69afc2df3235f0510b471102",
+      "leadId": "69b11a75b014e71dc485f735",
+      "direction": "outflow",
+      "vendorName": "Photographer Raj",
+      "amount": 15000,
+      "method": "cash",
+      "givenDate": "2026-03-10T00:00:00.000Z",
+      "notes": "Referral for photography",
+      "createdBy": "69afbd219ab76559ecbb2f1a",
+      "createdAt": "2026-03-10T08:31:00.000Z",
+      "updatedAt": "2026-03-10T08:31:00.000Z"
+    },
+    {
+      "_id": "64b1b2c3d4e5f6789012345b",
+      "venueId": "69afc2df3235f0510b471102",
+      "leadId": "69b11a75b014e71dc485f735",
+      "direction": "inflow",
+      "vendorName": "Decorator Suresh",
+      "amount": 20000,
+      "method": "account",
+      "givenDate": "2026-03-12T00:00:00.000Z",
+      "notes": "Commission on decor package",
+      "createdBy": "69afbd219ab76559ecbb2f1a",
+      "createdAt": "2026-03-12T07:10:00.000Z",
+      "updatedAt": "2026-03-12T07:10:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### Create commission  
+`POST /api/venues/{venueId}/leads/{leadId}/commissions`  
+Auth: Admin or Incharge.
+
+**Outflow example (you pay vendor):**
+```json
+{
+  "direction": "outflow",
+  "vendorName": "Photographer Raj",
+  "amount": 15000,
+  "method": "cash",
+  "givenDate": "2026-03-10T00:00:00.000Z",
+  "notes": "Referral for photography"
+}
+```
+
+**Inflow example (you receive from vendor):**
+```json
+{
+  "direction": "inflow",
+  "vendorName": "Decorator Suresh",
+  "amount": 20000,
+  "method": "account",
+  "givenDate": "2026-03-12T00:00:00.000Z",
+  "notes": "Commission on decor package"
+}
+```
+
+**Response (201):** returns the created `Commission` document.
+
+---
+
+### Update commission (Edit)  
+`PATCH /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}`  
+Auth: Admin or Incharge.
+
+**Request body (partial update):**
+```json
+{
+  "vendorName": "Photographer Rajesh",
+  "amount": 18000,
+  "method": "account",
+  "givenDate": "2026-03-11T00:00:00.000Z",
+  "notes": "Updated: bank transfer instead of cash"
+}
+```
+
+You may also allow changing `direction` if required.
+
+---
+
+### Delete commission  
+`DELETE /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}`  
+Auth: Admin or Incharge.  
+Implements **soft delete**: sets `status: "deleted"` so history is preserved.
+
+**Response:**
+```json
+{ "success": true, "data": { "deleted": true } }
+```
+
+---
+
+### Frontend (Lead Commissions tab)
+
+For each commission row, the frontend sends:
+
+- `direction`: `"outflow"` or `"inflow"`
+- `vendorName`: string (required)
+- `amount`: number (required)
+- `method`: `"cash" | "account"` (required)
+- `givenDate`: ISO date string (date picker, `T00:00:00.000Z` is fine)
+- `notes`: string (optional)
+
+The pie/donut chart can be computed client-side:
+
+- `outflowTotal = sum(amount where direction === "outflow")`
+- `inflowTotal = sum(amount where direction === "inflow")`
+
+No extra backend endpoint is required for these totals.
+
+---
+
 ## Gallery (Albums + Photos)
 
 One venue can have multiple albums. Each album contains multiple photos (stored as sub-documents).
@@ -970,6 +1331,139 @@ Auth: Admin only.
 Removes all pricing for the venue.
 
 **Responses:** 200, 401, 403, 404.
+
+---
+
+## Religious Calendar (global auspicious days)
+
+Global calendar of auspicious dates for religious events. **Not** tied to any venue — the same calendar applies across all venues. Admin-managed.
+
+### Enums
+
+| Field | Values |
+|-------|--------|
+| religion | `hindu`, `muslim`, `christian` |
+| type | `most_auspicious`, `auspicious`, `less_auspicious` |
+
+**Unique constraint:** one entry per `religion` + `date`.
+
+### Endpoints
+
+| Action | Method | Endpoint |
+|--------|--------|----------|
+| List days | GET | `/api/calendar-days` |
+| Create (bulk) | POST | `/api/calendar-days/bulk` |
+| Create (one) | POST | `/api/calendar-days` |
+| Update one | PATCH | `/api/calendar-days/{id}` |
+| Delete one | DELETE | `/api/calendar-days/{id}` |
+
+### List calendar days  
+`GET /api/calendar-days`  
+**Auth:** Admin, Incharge  
+**Query params (all optional):**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| religion | string | `hindu`, `muslim`, or `christian` |
+| type | string | `most_auspicious`, `auspicious`, or `less_auspicious` |
+| year | integer | e.g. `2026` |
+| month | integer | 1–12 (January = 1) |
+
+**Examples:**
+- `GET /api/calendar-days` — all days
+- `GET /api/calendar-days?religion=hindu` — Hindu only
+- `GET /api/calendar-days?religion=hindu&type=most_auspicious&year=2026&month=1`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "64a1b2c3d4e5f6789012345a",
+      "religion": "hindu",
+      "type": "most_auspicious",
+      "date": "2026-01-09",
+      "createdBy": "69afbd219ab76559ecbb2f1a",
+      "createdByUser": { "_id": "...", "name": "Admin", "email": "admin@example.com", "role": "admin" },
+      "createdAt": "2026-03-13T07:30:00.000Z",
+      "updatedAt": "2026-03-13T07:30:00.000Z"
+    }
+  ]
+}
+```
+
+### Bulk create calendar days  
+`POST /api/calendar-days/bulk`  
+**Auth:** Admin only  
+**Max:** 500 items per request. Duplicates are skipped and reported.
+
+**Request:**
+```json
+{
+  "items": [
+    { "religion": "hindu", "type": "most_auspicious", "date": "2026-01-09" },
+    { "religion": "hindu", "type": "most_auspicious", "date": "2026-01-10" },
+    { "religion": "hindu", "type": "auspicious", "date": "2026-02-01" }
+  ]
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "created": [ { "_id": "...", "religion": "hindu", "type": "most_auspicious", "date": "2026-01-09", "createdBy": "..." } ],
+    "skipped": [ { "religion": "hindu", "date": "2026-01-10", "reason": "already exists" } ],
+    "errors": []
+  }
+}
+```
+
+### Create single calendar day  
+`POST /api/calendar-days`  
+**Auth:** Admin only
+
+**Request:**
+```json
+{ "religion": "hindu", "type": "most_auspicious", "date": "2026-01-09" }
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": { "_id": "...", "religion": "hindu", "type": "most_auspicious", "date": "2026-01-09", "createdBy": "..." }
+}
+```
+
+### Update calendar day  
+`PATCH /api/calendar-days/{id}`  
+**Auth:** Admin only
+
+**Request (any combination):**
+```json
+{ "type": "less_auspicious" }
+```
+
+### Delete calendar day  
+`DELETE /api/calendar-days/{id}`  
+**Auth:** Admin only
+
+**Response:**
+```json
+{ "success": true, "data": { "deleted": true } }
+```
+
+### Field reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| religion | string | Yes | `hindu`, `muslim`, or `christian` |
+| type | string | Yes | `most_auspicious`, `auspicious`, or `less_auspicious` |
+| date | string | Yes | `YYYY-MM-DD` format (e.g. `2026-01-09`) |
+| createdBy | ObjectId | Auto | User who created the entry (from JWT) |
 
 ---
 

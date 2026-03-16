@@ -51,10 +51,16 @@ tags:
     description: Event enquiries / leads per venue (created by Incharge or Admin)
   - name: Quotes
     description: Pricing quotes for leads (draft → confirmed, venue buyout or space buyout)
+  - name: Payments
+    description: Payment reminders and received payments per lead (venue-scoped)
+  - name: Commissions
+    description: Commission inflows and outflows per lead (venue-scoped)
   - name: Gallery
     description: Albums with photos per venue
   - name: Uploads
     description: S3 presigned URL generation and file deletion (bucket — venuemanagementdhruva)
+  - name: Calendar
+    description: Religious calendar – global auspicious days (admin-managed, shared across all venues)
   - name: Health
     description: Health check
 
@@ -1136,6 +1142,519 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  # -------- Payments (reminders + received payments per lead) --------
+  /api/venues/{venueId}/leads/{leadId}/payment-reminders:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Payments]
+      summary: List payment reminders for a lead
+      operationId: getPaymentReminders
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of payment reminders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PaymentReminder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Payments]
+      summary: Create payment reminder
+      operationId: postPaymentReminder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentReminderCreateRequest"
+            example:
+              expectedAmount: 691210
+              expectedDate: "2026-01-09"
+      responses:
+        "201":
+          description: Reminder created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/PaymentReminder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/leads/{leadId}/payment-reminders/{reminderId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: reminderId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Payments]
+      summary: Get payment reminder by id
+      operationId: getPaymentReminderById
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Reminder
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/PaymentReminder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Payments]
+      summary: Update payment reminder
+      operationId: patchPaymentReminder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentReminderUpdateRequest"
+            example:
+              expectedAmount: 700000
+              expectedDate: "2026-01-15"
+      responses:
+        "200":
+          description: Reminder updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/PaymentReminder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Payments]
+      summary: Delete payment reminder
+      operationId: deletePaymentReminder
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean, example: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/venues/{venueId}/leads/{leadId}/payments:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Payments]
+      summary: List received payments for a lead
+      operationId: getPayments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Filter by receivedAt >= from (ISO datetime)
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          description: Filter by receivedAt <= to (ISO datetime)
+          schema: { type: string, format: date-time }
+        - name: method
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [cash, account]
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Payments]
+      summary: Record received payment
+      operationId: postPayment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCreateRequest"
+            examples:
+              manual:
+                summary: Manual add from \"Add received payments\" tab
+                value:
+                  amount: 300000
+                  method: cash
+                  receivedAt: "2026-03-15T09:00:00.000Z"
+                  receivedByName: Anand
+                  givenByName: "Bride family"
+                  notes: "Advance amount collected at venue"
+              fromReminder:
+                summary: From payment reminder → Received
+                value:
+                  amount: 250000
+                  method: account
+                  receivedAt: "2026-03-12T10:30:00.000Z"
+                  receivedByName: Kumar
+                  givenByName: Ramesh
+                  notes: "NEFT ref AXIS123456"
+                  reminderId: "64a1b2c3d4e5f6789012345b"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/Payment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: paymentId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Payments]
+      summary: Update payment
+      operationId: patchPayment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentUpdateRequest"
+            example:
+              amount: 300000
+              method: account
+              receivedAt: "2026-03-16T11:00:00.000Z"
+              receivedByName: Anand
+              givenByName: "Bride family"
+              notes: "Updated: amount adjusted after discussion"
+      responses:
+        "200":
+          description: Payment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/Payment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------- Commissions (inflow + outflow per lead) --------
+  /api/venues/{venueId}/leads/{leadId}/commissions:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Commissions]
+      summary: List commissions for a lead
+      description: |
+        List all commission cashflows (inflow + outflow) for a given lead and venue.
+      operationId: getCommissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [outflow, inflow]
+        - name: from
+          in: query
+          required: false
+          description: Filter by givenDate >= from (ISO date/time)
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          description: Filter by givenDate <= to (ISO date/time)
+          schema: { type: string, format: date-time }
+        - name: method
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [cash, account]
+      responses:
+        "200":
+          description: List of commissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Commission"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Commissions]
+      summary: Create commission (inflow or outflow)
+      description: |
+        Record a commission cashflow (outflow = you pay; inflow = you receive) for a lead.
+      operationId: postCommission
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommissionCreateRequest"
+            examples:
+              outflow:
+                summary: Outflow commission (you pay vendor)
+                value:
+                  direction: outflow
+                  vendorName: "Photographer Raj"
+                  amount: 15000
+                  method: cash
+                  givenDate: "2026-03-10T00:00:00.000Z"
+                  notes: "Referral for photography"
+              inflow:
+                summary: Inflow commission (you receive from vendor)
+                value:
+                  direction: inflow
+                  vendorName: "Decorator Suresh"
+                  amount: 20000
+                  method: account
+                  givenDate: "2026-03-12T00:00:00.000Z"
+                  notes: "Commission on decor package"
+      responses:
+        "201":
+          description: Commission created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/Commission"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: commissionId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Commissions]
+      summary: Update commission
+      operationId: patchCommission
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommissionUpdateRequest"
+            example:
+              vendorName: "Photographer Rajesh"
+              amount: 18000
+              method: account
+              givenDate: "2026-03-11T00:00:00.000Z"
+              notes: "Updated: bank transfer instead of cash"
+      responses:
+        "200":
+          description: Commission updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/Commission"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Commissions]
+      summary: Delete commission
+      description: |
+        Soft deletes the commission (status = deleted) so history is preserved.
+      operationId: deleteCommission
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean, example: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Payments]
+      summary: Delete payment
+      operationId: deletePayment
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean, example: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
     get:
       tags: [Leads]
       summary: List leads
@@ -1920,6 +2439,241 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  # -------- Calendar --------
+  /api/calendar-days:
+    get:
+      tags: [Calendar]
+      summary: List calendar days
+      description: |
+        Returns all religious calendar days. Global resource (not venue-scoped).
+        Optional filters via query params: `religion`, `type`, `year`, `month`.
+      operationId: getCalendarDays
+      parameters:
+        - in: query
+          name: religion
+          schema:
+            type: string
+            enum: [hindu, muslim, christian]
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [most_auspicious, auspicious, less_auspicious]
+        - in: query
+          name: year
+          schema:
+            type: integer
+          description: Filter by year (e.g. 2026)
+        - in: query
+          name: month
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+          description: Filter by month (1–12, January = 1)
+      responses:
+        "200":
+          description: List of calendar days
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarDay"
+              example:
+                success: true
+                data:
+                  - _id: "64a1b2c3d4e5f6789012345a"
+                    religion: hindu
+                    type: most_auspicious
+                    date: "2026-01-09"
+                    createdBy: "69afbd219ab76559ecbb2f1a"
+                    createdByUser:
+                      _id: "69afbd219ab76559ecbb2f1a"
+                      name: Admin
+                      email: admin@example.com
+                      role: admin
+                    createdAt: "2026-03-13T07:30:00.000Z"
+                    updatedAt: "2026-03-13T07:30:00.000Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Calendar]
+      summary: Create single calendar day
+      description: |
+        Create one religious calendar day. Requires Admin role.
+        Unique constraint: one entry per religion + date.
+      operationId: postCalendarDay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarDayCreateRequest"
+            example:
+              religion: hindu
+              type: most_auspicious
+              date: "2026-01-09"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/CalendarDay"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/calendar-days/bulk:
+    post:
+      tags: [Calendar]
+      summary: Bulk create calendar days
+      description: |
+        Create multiple religious calendar days in one request. Requires Admin role.
+        Duplicates (same religion + date) are skipped and reported.
+        Max 500 items per request.
+      operationId: postBulkCalendarDays
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarDayBulkRequest"
+            example:
+              items:
+                - religion: hindu
+                  type: most_auspicious
+                  date: "2026-01-09"
+                - religion: hindu
+                  type: most_auspicious
+                  date: "2026-01-10"
+                - religion: hindu
+                  type: auspicious
+                  date: "2026-02-01"
+      responses:
+        "201":
+          description: Created (at least one item was new)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      created:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CalendarDay"
+                      skipped:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            religion: { type: string }
+                            date: { type: string }
+                            reason: { type: string }
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            index: { type: integer }
+                            message: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/calendar-days/{id}:
+    patch:
+      tags: [Calendar]
+      summary: Update calendar day
+      description: |
+        Update religion, type, or date of a calendar day. Requires Admin role.
+      operationId: patchCalendarDay
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          description: CalendarDay _id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarDayUpdateRequest"
+            example:
+              type: less_auspicious
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/CalendarDay"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Calendar]
+      summary: Delete calendar day
+      description: |
+        Permanently delete a calendar day. Requires Admin role.
+      operationId: deleteCalendarDay
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+          description: CalendarDay _id
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean, example: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # -------- Health --------
   /test:
     get:
@@ -2590,6 +3344,266 @@ components:
             message: { type: string }
             stage: { type: string }
             timestamp: { type: string, format: date-time }
+
+    # -------- Calendar schemas --------
+    CalendarDay:
+      type: object
+      properties:
+        _id: { type: string }
+        religion:
+          type: string
+          enum: [hindu, muslim, christian]
+        type:
+          type: string
+          enum: [most_auspicious, auspicious, less_auspicious]
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+          example: "2026-01-09"
+        createdBy: { type: string }
+        createdByUser:
+          type: object
+          description: Populated user who created the entry
+          properties:
+            _id: { type: string }
+            name: { type: string }
+            email: { type: string }
+            role: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CalendarDayCreateRequest:
+      type: object
+      required: [religion, type, date]
+      properties:
+        religion:
+          type: string
+          enum: [hindu, muslim, christian]
+        type:
+          type: string
+          enum: [most_auspicious, auspicious, less_auspicious]
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+          example: "2026-01-09"
+
+    CalendarDayBulkRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/CalendarDayCreateRequest"
+
+    CalendarDayUpdateRequest:
+      type: object
+      properties:
+        religion:
+          type: string
+          enum: [hindu, muslim, christian]
+        type:
+          type: string
+          enum: [most_auspicious, auspicious, less_auspicious]
+        date:
+          type: string
+          description: "YYYY-MM-DD"
+
+    # -------- Payment schemas --------
+    PaymentReminder:
+      type: object
+      properties:
+        _id: { type: string }
+        venueId: { type: string }
+        leadId: { type: string }
+        expectedAmount:
+          type: number
+          minimum: 0
+        expectedDate:
+          type: string
+          format: date-time
+          description: Expected payment date (normalized to midnight)
+        status:
+          type: string
+          enum: [pending, received]
+        paymentId:
+          type: string
+          nullable: true
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentReminderCreateRequest:
+      type: object
+      required: [expectedAmount, expectedDate]
+      properties:
+        expectedAmount:
+          type: number
+          minimum: 0
+        expectedDate:
+          type: string
+          description: "Expected date (YYYY-MM-DD or ISO)"
+
+    PaymentReminderUpdateRequest:
+      type: object
+      properties:
+        expectedAmount:
+          type: number
+          minimum: 0
+        expectedDate:
+          type: string
+          description: "Expected date (YYYY-MM-DD or ISO)"
+
+    Payment:
+      type: object
+      properties:
+        _id: { type: string }
+        venueId: { type: string }
+        leadId: { type: string }
+        amount:
+          type: number
+          minimum: 0
+        method:
+          type: string
+          enum: [cash, account]
+        receivedAt:
+          type: string
+          format: date-time
+        receivedByName:
+          type: string
+        givenByName:
+          type: string
+        notes:
+          type: string
+        reminderId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, deleted]
+        createdBy:
+          type: string
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PaymentCreateRequest:
+      type: object
+      required: [amount, method]
+      properties:
+        amount:
+          type: number
+          minimum: 0
+        method:
+          type: string
+          enum: [cash, account]
+        receivedAt:
+          type: string
+          format: date-time
+          description: "When payment was received. Defaults to now if omitted."
+        receivedByName:
+          type: string
+          description: "Staff member who received the payment"
+        givenByName:
+          type: string
+          description: "Guest / client who gave the payment"
+        notes:
+          type: string
+        reminderId:
+          type: string
+          description: "Optional link to PaymentReminder when created from reminder flow"
+
+    PaymentUpdateRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+        method:
+          type: string
+          enum: [cash, account]
+        receivedAt:
+          type: string
+          format: date-time
+        receivedByName:
+          type: string
+        givenByName:
+          type: string
+        notes:
+          type: string
+
+    # -------- Commission schemas --------
+    Commission:
+      type: object
+      properties:
+        _id: { type: string }
+        venueId: { type: string }
+        leadId: { type: string }
+        direction:
+          type: string
+          enum: [outflow, inflow]
+        vendorName:
+          type: string
+        amount:
+          type: number
+          minimum: 0
+        method:
+          type: string
+          enum: [cash, account]
+        givenDate:
+          type: string
+          format: date-time
+          description: "Date the commission was paid or received"
+        notes:
+          type: string
+        createdBy:
+          type: string
+        status:
+          type: string
+          enum: [active, deleted]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CommissionCreateRequest:
+      type: object
+      required: [direction, vendorName, amount, method, givenDate]
+      properties:
+        direction:
+          type: string
+          enum: [outflow, inflow]
+        vendorName:
+          type: string
+        amount:
+          type: number
+          minimum: 0
+        method:
+          type: string
+          enum: [cash, account]
+        givenDate:
+          type: string
+          format: date-time
+          description: "Date the commission was paid or received (ISO; time usually 00:00:00Z)"
+        notes:
+          type: string
+
+    CommissionUpdateRequest:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [outflow, inflow]
+        vendorName:
+          type: string
+        amount:
+          type: number
+          minimum: 0
+        method:
+          type: string
+          enum: [cash, account]
+        givenDate:
+          type: string
+          format: date-time
+        notes:
+          type: string
 
     ErrorResponse:
       type: object
