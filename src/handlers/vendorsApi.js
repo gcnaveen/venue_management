@@ -36,10 +36,29 @@ function toObjectId(id) {
   }
 }
 
+function sanitizeBankDetails(raw) {
+  if (!raw || typeof raw !== 'object') return {
+    bankName: '',
+    beneficiaryName: '',
+    bankPincode: '',
+    accountNumber: '',
+    ifscCode: '',
+    branch: '',
+  };
+  return {
+    bankName: raw.bankName != null ? String(raw.bankName).trim() : '',
+    beneficiaryName: raw.beneficiaryName != null ? String(raw.beneficiaryName).trim() : '',
+    bankPincode: raw.bankPincode != null ? String(raw.bankPincode).trim() : '',
+    accountNumber: raw.accountNumber != null ? String(raw.accountNumber).trim() : '',
+    ifscCode: raw.ifscCode != null ? String(raw.ifscCode).trim().toUpperCase() : '',
+    branch: raw.branch != null ? String(raw.branch).trim() : '',
+  };
+}
+
 async function assertVenueAccess(event, venueId) {
   const decoded = auth.requireAuth(event);
   if (decoded.role === auth.ROLES.ADMIN) return decoded;
-  if (decoded.role === auth.ROLES.INCHARGE) {
+  if (decoded.role === auth.ROLES.INCHARGE || decoded.role === auth.ROLES.OWNER) {
     const User = require('../models/User');
     const u = await User.findById(decoded.sub).select('venueId').lean();
     if (u?.venueId?.toString() !== String(venueId)) {
@@ -73,10 +92,22 @@ async function postVendor(event) {
   const doc = await Vendor.create({
     venueId: vid,
     name,
-    category: body.category != null ? String(body.category).trim() : '',
-    contactName: body.contactName != null ? String(body.contactName).trim() : '',
+    category: body.category != null ? String(body.category).trim() : (body.vendorType != null ? String(body.vendorType).trim() : ''),
+    vendorType: body.vendorType != null ? String(body.vendorType).trim() : (body.category != null ? String(body.category).trim() : ''),
+    paymentCategory: body.paymentCategory != null ? String(body.paymentCategory).trim().toLowerCase() : '',
+    companyName: body.companyName != null ? String(body.companyName).trim() : '',
+    legalCategory: body.legalCategory != null ? String(body.legalCategory).trim().toLowerCase() : '',
+    address: body.address != null ? String(body.address).trim() : '',
+    gst: body.gst != null ? String(body.gst).trim().toUpperCase() : '',
+    pan: body.pan != null ? String(body.pan).trim().toUpperCase() : '',
+    aadhar: body.aadhar != null ? String(body.aadhar).trim() : '',
+    msmedNo: body.msmedNo != null ? String(body.msmedNo).trim() : '',
+    contact: body.contact != null ? String(body.contact).trim() : '',
+    contactName: body.contactName != null ? String(body.contactName).trim() : (body.contact != null ? String(body.contact).trim() : ''),
     phone: body.phone != null ? String(body.phone).trim() : '',
+    alternatePhone: body.alternatePhone != null ? String(body.alternatePhone).trim() : '',
     email: body.email != null ? String(body.email).trim() : '',
+    bankDetails: sanitizeBankDetails(body.bankDetails),
     notes: body.notes != null ? String(body.notes).trim() : '',
     isActive: body.isActive !== false,
     createdBy: toObjectId(decoded.sub),
@@ -100,8 +131,8 @@ async function getVendors(event) {
   if (qs.isActive === 'true') match.isActive = true;
   if (qs.isActive === 'false') match.isActive = false;
 
-  if (qs.category) {
-    match.category = String(qs.category).trim();
+  if (qs.category || qs.vendorType) {
+    match.category = String(qs.category || qs.vendorType).trim();
   }
 
   const list = await Vendor.find(match).sort({ name: 1 }).lean();
@@ -141,10 +172,31 @@ async function patchVendor(event) {
     if (!name) return res.error('name cannot be empty', 400);
     update.name = name;
   }
-  if (body.category !== undefined) update.category = String(body.category).trim();
+  if (body.category !== undefined) {
+    update.category = String(body.category).trim();
+    update.vendorType = String(body.category).trim();
+  }
+  if (body.vendorType !== undefined) {
+    update.vendorType = String(body.vendorType).trim();
+    update.category = String(body.vendorType).trim();
+  }
+  if (body.paymentCategory !== undefined) update.paymentCategory = String(body.paymentCategory).trim().toLowerCase();
+  if (body.companyName !== undefined) update.companyName = String(body.companyName).trim();
+  if (body.legalCategory !== undefined) update.legalCategory = String(body.legalCategory).trim().toLowerCase();
+  if (body.address !== undefined) update.address = String(body.address).trim();
+  if (body.gst !== undefined) update.gst = String(body.gst).trim().toUpperCase();
+  if (body.pan !== undefined) update.pan = String(body.pan).trim().toUpperCase();
+  if (body.aadhar !== undefined) update.aadhar = String(body.aadhar).trim();
+  if (body.msmedNo !== undefined) update.msmedNo = String(body.msmedNo).trim();
+  if (body.contact !== undefined) {
+    update.contact = String(body.contact).trim();
+    update.contactName = String(body.contact).trim();
+  }
   if (body.contactName !== undefined) update.contactName = String(body.contactName).trim();
   if (body.phone !== undefined) update.phone = String(body.phone).trim();
+  if (body.alternatePhone !== undefined) update.alternatePhone = String(body.alternatePhone).trim();
   if (body.email !== undefined) update.email = String(body.email).trim();
+  if (body.bankDetails !== undefined) update.bankDetails = sanitizeBankDetails(body.bankDetails);
   if (body.notes !== undefined) update.notes = String(body.notes).trim();
   if (body.isActive !== undefined) update.isActive = Boolean(body.isActive);
 

@@ -20,7 +20,7 @@ async function assertVenueAccess(event, venueId) {
   const user = await auth.verifyToken(auth.getAuthHeaders(event).authorization);
   if (!user) return;
   if (user.role === auth.ROLES.ADMIN) return;
-  if (user.role === auth.ROLES.INCHARGE) {
+  if (user.role === auth.ROLES.INCHARGE || user.role === auth.ROLES.OWNER) {
     const User = require('../models/User');
     const u = await User.findById(user.sub).select('venueId').lean();
     if (u?.venueId?.toString() !== venueId) {

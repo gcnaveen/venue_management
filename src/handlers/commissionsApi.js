@@ -41,7 +41,7 @@ function toObjectId(id) {
 async function assertVenueAccess(event, venueId) {
   const decoded = auth.requireAuth(event);
   if (decoded.role === auth.ROLES.ADMIN) return decoded;
-  if (decoded.role === auth.ROLES.INCHARGE) {
+  if (decoded.role === auth.ROLES.INCHARGE || decoded.role === auth.ROLES.OWNER) {
     const User = require('../models/User');
     const u = await User.findById(decoded.sub).select('venueId').lean();
     if (u?.venueId?.toString() !== String(venueId)) {
@@ -81,6 +81,10 @@ function sanitizeMethod(value) {
   return m;
 }
 
+function round2(value) {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
 // ─── CRUD ───────────────────────────────────────────────────────────────────
 
 async function postCommission(event) {
@@ -100,14 +104,19 @@ async function postCommission(event) {
 
   const direction = sanitizeDirection(body.direction);
   const vendorName = body.vendorName != null ? String(body.vendorName).trim() : '';
-  const amount = sanitizeAmount(body.amount);
+  const taxableAmount = sanitizeAmount(body.taxableAmount !== undefined ? body.taxableAmount : body.amount);
+  const gstIncluded = body.gstIncluded === true;
+  const gstRate = sanitizeAmount(body.gstRate !== undefined ? body.gstRate : 0);
   const method = sanitizeMethod(body.method);
   const givenDate = sanitizeGivenDate(body.givenDate);
   const notes = body.notes != null ? String(body.notes).trim() : '';
+  const gstAmount = taxableAmount == null || gstRate == null || !gstIncluded ? 0 : round2((taxableAmount * gstRate) / 100);
+  const amount = taxableAmount == null ? null : round2(gstIncluded ? taxableAmount + gstAmount : taxableAmount);
 
   if (!direction) return res.error(`direction must be one of: ${Commission.COMMISSION_DIRECTIONS.join(', ')}`, 400);
   if (!vendorName) return res.error('vendorName is required', 400);
-  if (amount == null) return res.error('amount must be a non-negative number', 400);
+  if (taxableAmount == null) return res.error('taxableAmount (or amount) must be a non-negative number', 400);
+  if (gstRate == null) return res.error('gstRate must be a non-negative number', 400);
   if (!method) return res.error(`method must be one of: ${Commission.COMMISSION_METHODS.join(', ')}`, 400);
   if (!givenDate) return res.error('givenDate must be a valid date (ISO)', 400);
 
@@ -117,6 +126,10 @@ async function postCommission(event) {
     direction,
     vendorName,
     amount,
+    taxableAmount,
+    gstIncluded,
+    gstRate,
+    gstAmount,
     method,
     givenDate,
     notes,
@@ -179,6 +192,9 @@ async function patchCommission(event) {
   const cid = toObjectId(commissionId);
   if (!vid || !lid || !cid) return res.error('Invalid id(s)', 400);
 
+  const existing = await Commission.findOne({ _id: cid, venueId: vid, leadId: lid, status: { $ne: 'deleted' } }).lean();
+  if (!existing) return res.notFound('Commission not found');
+
   const body = parseBody(event);
   const update = {};
 
@@ -197,6 +213,17 @@ async function patchCommission(event) {
     if (amount == null) return res.error('amount must be a non-negative number', 400);
     update.amount = amount;
   }
+  if (body.taxableAmount !== undefined) {
+    const taxableAmount = sanitizeAmount(body.taxableAmount);
+    if (taxableAmount == null) return res.error('taxableAmount must be a non-negative number', 400);
+    update.taxableAmount = taxableAmount;
+  }
+  if (body.gstIncluded !== undefined) update.gstIncluded = body.gstIncluded === true;
+  if (body.gstRate !== undefined) {
+    const gstRate = sanitizeAmount(body.gstRate);
+    if (gstRate == null) return res.error('gstRate must be a non-negative number', 400);
+    update.gstRate = gstRate;
+  }
   if (body.method !== undefined) {
     const m = sanitizeMethod(body.method);
     if (!m) return res.error(`method must be one of: ${Commission.COMMISSION_METHODS.join(', ')}`, 400);
@@ -212,6 +239,20 @@ async function patchCommission(event) {
   }
 
   if (Object.keys(update).length === 0) return res.error('At least one field required', 400);
+
+  const finalTaxable = update.taxableAmount !== undefined
+    ? update.taxableAmount
+    : (existing.taxableAmount !== undefined ? existing.taxableAmount : existing.amount);
+  const finalGstIncluded = update.gstIncluded !== undefined ? update.gstIncluded : (existing.gstIncluded === true);
+  const finalGstRate = update.gstRate !== undefined ? update.gstRate : (existing.gstRate || 0);
+  const finalGstAmount = finalGstIncluded ? round2((finalTaxable * finalGstRate) / 100) : 0;
+  const finalAmount = round2(finalGstIncluded ? finalTaxable + finalGstAmount : finalTaxable);
+
+  update.taxableAmount = finalTaxable;
+  update.gstIncluded = finalGstIncluded;
+  update.gstRate = finalGstRate;
+  update.gstAmount = finalGstAmount;
+  update.amount = finalAmount;
 
   const doc = await Commission.findOneAndUpdate(
     { _id: cid, venueId: vid, leadId: lid, status: { $ne: 'deleted' } },

@@ -3,7 +3,7 @@
 const mongoose = require('mongoose');
 
 const BOOKING_TYPES = ['venue_buyout', 'space_buyout'];
-const QUOTE_STATUSES = ['draft', 'shared', 'accepted', 'rejected'];
+const QUOTE_STATUSES = ['draft', 'shared', 'accepted', 'confirmed', 'rejected'];
 
 const inclusionSchema = new mongoose.Schema(
   {
@@ -26,9 +26,14 @@ const addonSchema = new mongoose.Schema(
 const totalsSchema = new mongoose.Schema(
   {
     venueBase: { type: Number, default: 0 },
+    venueNet: { type: Number, default: 0 },
     venueGst: { type: Number, default: 0 },
+    venueTotal: { type: Number, default: 0 },
+    selectedAddonTotal: { type: Number, default: 0 },
+    maintenanceCharge: { type: Number, default: 0 },
     addonTotal: { type: Number, default: 0 },
     addonGst: { type: Number, default: 0 },
+    addonsTotalWithGst: { type: Number, default: 0 },
     subtotal: { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
@@ -41,6 +46,7 @@ const pricingSchema = new mongoose.Schema(
     basePrice: { type: Number, required: true },
     inclusions: { type: [inclusionSchema], default: [] },
     addons: { type: [addonSchema], default: [] },
+    maintenanceCharge: { type: Number, default: 0 },
     gstRate: { type: Number, default: 0.18 },
     discount: { type: Number, default: 0 },
     totals: { type: totalsSchema, default: () => ({}) },

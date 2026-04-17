@@ -9,6 +9,7 @@ const paymentSchema = new mongoose.Schema(
   {
     venueId: { type: mongoose.Schema.Types.ObjectId, ref: 'Venue', required: true, index: true },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', required: true, index: true },
+    quoteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quote', default: null, index: true },
 
     amount: { type: Number, required: true, min: 0 },
     method: { type: String, required: true, enum: PAYMENT_METHODS },
@@ -20,6 +21,11 @@ const paymentSchema = new mongoose.Schema(
 
     reminderId: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentReminder', default: null },
 
+    confirmedReceived: { type: Boolean, default: false },
+    confirmedReceivedAt: { type: Date, default: null },
+    confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    confirmedNotes: { type: String, trim: true, default: '' },
+
     status: { type: String, enum: PAYMENT_STATUSES, default: 'active' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
@@ -27,6 +33,7 @@ const paymentSchema = new mongoose.Schema(
 );
 
 paymentSchema.index({ venueId: 1, leadId: 1, createdAt: -1 });
+paymentSchema.index({ venueId: 1, leadId: 1, quoteId: 1, createdAt: -1 });
 paymentSchema.index({ leadId: 1, receivedAt: -1 });
 
 module.exports = mongoose.models.Payment || mongoose.model('Payment', paymentSchema);

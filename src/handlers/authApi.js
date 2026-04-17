@@ -21,7 +21,7 @@ async function postRegister(event) {
     return res.error('email, password and name are required', 400);
   }
   const r = String(roleRaw ?? '').toLowerCase().trim();
-  const role = (r === auth.ROLES.ADMIN || r === auth.ROLES.INCHARGE) ? r : auth.ROLES.INCHARGE;
+  const role = (r === auth.ROLES.ADMIN || r === auth.ROLES.INCHARGE || r === auth.ROLES.OWNER) ? r : auth.ROLES.INCHARGE;
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) return res.error('Email already registered', 409);
   const user = await User.create({
@@ -29,7 +29,7 @@ async function postRegister(event) {
     password,
     name: (name || '').trim(),
     role,
-    venueId: role === auth.ROLES.INCHARGE ? (venueId || null) : null,
+    venueId: (role === auth.ROLES.INCHARGE || role === auth.ROLES.OWNER) ? (venueId || null) : null,
   });
   const token = auth.signToken({ _id: user._id, email: user.email, role: user.role });
   return res.success(
@@ -166,8 +166,8 @@ async function postCreateUser(event) {
     return res.error('email, password and name are required', 400);
   }
   const r = String(roleRaw).toLowerCase().trim();
-  if (r !== auth.ROLES.ADMIN && r !== auth.ROLES.INCHARGE) {
-    return res.error('role must be admin or incharge', 400);
+  if (r !== auth.ROLES.ADMIN && r !== auth.ROLES.INCHARGE && r !== auth.ROLES.OWNER) {
+    return res.error('role must be admin, owner, or incharge', 400);
   }
   const existing = await User.findOne({ email: email.toLowerCase() });
   if (existing) return res.error('Email already registered', 409);
@@ -176,7 +176,7 @@ async function postCreateUser(event) {
     password,
     name,
     role: r,
-    venueId: r === auth.ROLES.INCHARGE ? (venueId || null) : null,
+    venueId: (r === auth.ROLES.INCHARGE || r === auth.ROLES.OWNER) ? (venueId || null) : null,
   });
   const created = await User.findById(user._id).select('-password').lean();
   return res.success(created, 201);

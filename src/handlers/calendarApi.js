@@ -109,8 +109,10 @@ async function getCalendarDays(event) {
   const qs = event.queryStringParameters || {};
   const match = {};
 
-  if (qs.religion && CalendarDay.RELIGIONS.includes(qs.religion.toLowerCase())) {
-    match.religion = qs.religion.toLowerCase();
+  const religionParam = qs.religion != null ? String(qs.religion).trim().toLowerCase() : '';
+  // religion=all (or omit religion) → no religion filter; all religions for the period
+  if (religionParam && religionParam !== 'all' && CalendarDay.RELIGIONS.includes(religionParam)) {
+    match.religion = religionParam;
   }
   if (qs.type && CalendarDay.DAY_TYPES.includes(qs.type.toLowerCase())) {
     match.type = qs.type.toLowerCase();

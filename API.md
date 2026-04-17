@@ -931,6 +931,29 @@ Lead-level payment tracking: **expected payments** (reminders) and **received pa
 
 ---
 
+## Daybook (Profit / Loss)
+
+Aggregates inflow and outflow for a venue using:
+- Payments (`Payment.amount` as inflow)
+- Commissions (`Commission.amount` as inflow/outflow based on `direction`)
+- Labours (`Labour.amount` as outflow)
+
+### Endpoint
+`GET /api/venues/{venueId}/daybook`
+
+### Auth
+Admin, Incharge, Owner.
+
+### Query params
+- `date` (optional): `YYYY-MM-DD` — single day (UTC)
+- `from` (optional): ISO datetime — start of range
+- `to` (optional): ISO datetime — end of range; if omitted, range is 1 day from `from`
+
+### Response
+Returns `data.totals` (`inflowTotal`, `outflowTotal`, `profitLoss`, `profitOrLossType`) and `data.daybook` grouped by day with `net` (= inflow - outflow).
+
+---
+
 ### List payment reminders  
 `GET /api/venues/{venueId}/leads/{leadId}/payment-reminders`  
 Auth: Admin or Incharge.
@@ -1516,6 +1539,7 @@ Global calendar of auspicious dates for religious events. **Not** tied to any ve
 **Examples:**
 - `GET /api/calendar-days` — all days
 - `GET /api/calendar-days?religion=hindu` — Hindu only
+- `GET /api/calendar-days?religion=all` — all religions (omit `religion` for the same)
 - `GET /api/calendar-days?religion=hindu&type=most_auspicious&year=2026&month=1`
 
 **Response:**

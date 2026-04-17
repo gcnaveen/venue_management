@@ -2,10 +2,10 @@
 
 const mongoose = require('mongoose');
 
-const COMMISSION_DIRECTIONS = ['outflow', 'inflow'];
-const COMMISSION_METHODS = ['cash', 'account'];
+const SHIFT_TYPES = ['day', 'night', 'both'];
+const LABOUR_STATUSES = ['active', 'deleted'];
 
-const commissionSchema = new mongoose.Schema(
+const labourSchema = new mongoose.Schema(
   {
     venueId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -19,20 +19,31 @@ const commissionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-
-    direction: {
+    date: {
+      type: Date,
+      required: true,
+    },
+    shiftType: {
       type: String,
-      enum: COMMISSION_DIRECTIONS,
+      enum: SHIFT_TYPES,
       required: true,
       trim: true,
     },
-
-    vendorName: {
-      type: String,
+    labourCount: {
+      type: Number,
       required: true,
-      trim: true,
+      min: 1,
     },
-
+    dayRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    nightRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     amount: {
       type: Number,
       required: true,
@@ -57,42 +68,26 @@ const commissionSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
-
-    method: {
-      type: String,
-      enum: COMMISSION_METHODS,
-      required: true,
-      trim: true,
-    },
-
-    givenDate: {
-      type: Date,
-      required: true,
-    },
-
     notes: {
       type: String,
       trim: true,
       default: '',
     },
-
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
-
     status: {
       type: String,
-      enum: ['active', 'deleted'],
+      enum: LABOUR_STATUSES,
       default: 'active',
     },
   },
   { timestamps: true }
 );
 
-commissionSchema.index({ venueId: 1, leadId: 1, direction: 1, givenDate: -1 });
+labourSchema.index({ venueId: 1, leadId: 1, date: -1 });
 
-module.exports = mongoose.models.Commission || mongoose.model('Commission', commissionSchema);
-module.exports.COMMISSION_DIRECTIONS = COMMISSION_DIRECTIONS;
-module.exports.COMMISSION_METHODS = COMMISSION_METHODS;
-
+module.exports = mongoose.models.Labour || mongoose.model('Labour', labourSchema);
+module.exports.SHIFT_TYPES = SHIFT_TYPES;
+module.exports.LABOUR_STATUSES = LABOUR_STATUSES;

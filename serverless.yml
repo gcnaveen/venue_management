@@ -538,6 +538,12 @@ functions:
           path: /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}
           method: patch
       - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}/confirm-received
+          method: post
+      - httpApi:
+          path: /api/events/{eventId}/advances/{advanceId}/confirm
+          method: patch
+      - httpApi:
           path: /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}
           method: delete
 
@@ -556,6 +562,68 @@ functions:
           method: patch
       - httpApi:
           path: /api/venues/{venueId}/leads/{leadId}/commissions/{commissionId}
+          method: delete
+
+  # Labours per lead
+  laboursApi:
+    handler: src/handlers/laboursApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/labours
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/labours
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/labours/{labourId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/leads/{leadId}/labours/{labourId}
+          method: delete
+
+  # Daybook (profit/loss) aggregating payments, commissions, and labour
+  daybookApi:
+    handler: src/handlers/daybookApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/daybook
+          method: get
+
+  # Business Plan (monthly targets + actuals)
+  businessPlanApi:
+    handler: src/handlers/businessPlanApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/business-plan/yearly
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/business-plan
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/business-plan
+          method: post
+
+  # Bills (EMI tracking) per venue
+  billsApi:
+    handler: src/handlers/billsApi.handler
+    events:
+      - httpApi:
+          path: /api/venues/{venueId}/bills
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/bills
+          method: post
+      - httpApi:
+          path: /api/venues/{venueId}/bills/{billId}
+          method: get
+      - httpApi:
+          path: /api/venues/{venueId}/bills/{billId}
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/bills/{billId}/emi-status
+          method: patch
+      - httpApi:
+          path: /api/venues/{venueId}/bills/{billId}
           method: delete
 
   # Vendors per venue

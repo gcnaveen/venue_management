@@ -52,7 +52,7 @@ async function resolveVenueAccess(event) {
 async function assertVenueAccess(event, venueId) {
   const decoded = auth.requireAuth(event);
   if (decoded.role === auth.ROLES.ADMIN) return decoded;
-  if (decoded.role === auth.ROLES.INCHARGE) {
+  if (decoded.role === auth.ROLES.INCHARGE || decoded.role === auth.ROLES.OWNER) {
     const User = require('../models/User');
     const u = await User.findById(decoded.sub).select('venueId').lean();
     if (u?.venueId?.toString() !== String(venueId)) {
@@ -73,7 +73,18 @@ function sanitizeContact(raw) {
   const phone = raw.phone != null ? String(raw.phone).trim() : '';
   if (!name || !phone) return null;
   return {
+    namePrefix: raw.namePrefix != null ? String(raw.namePrefix).trim().toLowerCase() : '',
     name,
+    clientName: raw.clientName != null ? String(raw.clientName).trim() : '',
+    brideName: raw.brideName != null ? String(raw.brideName).trim() : '',
+    groomName: raw.groomName != null ? String(raw.groomName).trim() : '',
+    email: raw.email != null ? String(raw.email).trim() : '',
+    stateCityAddress: raw.stateCityAddress != null ? String(raw.stateCityAddress).trim() : '',
+    pan: raw.pan != null ? String(raw.pan).trim().toUpperCase() : '',
+    gst: raw.gst != null ? String(raw.gst).trim().toUpperCase() : '',
+    companyName: raw.companyName != null ? String(raw.companyName).trim() : '',
+    referredBy: raw.referredBy != null ? String(raw.referredBy).trim() : '',
+    referredByPhone: raw.referredByPhone != null ? String(raw.referredByPhone).trim() : '',
     phone,
     altPhone: raw.altPhone != null ? String(raw.altPhone).trim() : '',
   };
@@ -86,6 +97,53 @@ function sanitizeSpecialDay(raw) {
   const durationHours = Number.isFinite(Number(raw.durationHours)) ? Number(raw.durationHours) : null;
   if (!startAt || isNaN(startAt.getTime()) || !endAt || isNaN(endAt.getTime()) || !durationHours) return null;
   return { startAt, endAt, durationHours };
+}
+
+function getReferencePeriodStart(specialDay) {
+  const source = specialDay?.startAt instanceof Date ? specialDay.startAt : new Date();
+  const year = source.getUTCFullYear();
+  const month = source.getUTCMonth() + 1;
+  return { year, month };
+}
+
+async function generateLeadReferenceCode(venueId, specialDay) {
+  const { year, month } = getReferencePeriodStart(specialDay);
+  const yy = String(year).slice(-2);
+  const mm = String(month).padStart(2, '0');
+  const venueSuffix = String(venueId).slice(-4).toUpperCase();
+  const prefix = `LD-${yy}${mm}-${venueSuffix}-`;
+
+  const last = await Lead.findOne({
+    venueId,
+    referenceCode: { $regex: `^${prefix}` },
+  })
+    .sort({ referenceCode: -1 })
+    .select('referenceCode')
+    .lean();
+
+  let next = 1;
+  if (last?.referenceCode) {
+    const parts = String(last.referenceCode).split('-');
+    const maybeSeq = Number(parts[parts.length - 1]);
+    if (Number.isInteger(maybeSeq) && maybeSeq > 0) next = maybeSeq + 1;
+  }
+
+  return `${prefix}${String(next).padStart(4, '0')}`;
+}
+
+function sanitizeMeetings(raw) {
+  if (!Array.isArray(raw)) return null;
+  const meetings = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') return null;
+    const meetingAt = item.meetingAt ? new Date(item.meetingAt) : null;
+    if (!meetingAt || isNaN(meetingAt.getTime())) return null;
+    meetings.push({
+      meetingAt,
+      notes: item.notes != null ? String(item.notes).trim() : '',
+    });
+  }
+  return meetings;
 }
 
 // ─── CRUD ───────────────────────────────────────────────────────────────────
@@ -112,18 +170,35 @@ async function postLead(event) {
   const contact = sanitizeContact(body.contact);
   if (!contact) return res.error('contact with name and phone is required', 400);
 
-  const doc = await Lead.create({
-    venueId: vid,
-    createdBy: toObjectId(decoded.sub),
-    eventType,
-    eventTypeOther: eventType === 'other' && body.eventTypeOther ? String(body.eventTypeOther).trim() : '',
-    specialDay,
-    expectedGuests: Number.isFinite(Number(body.expectedGuests)) ? Number(body.expectedGuests) : null,
-    contact,
-    status: 'new',
-    notes: body.notes != null ? String(body.notes).trim() : '',
-    metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : {},
-  });
+  let doc = null;
+  let attempts = 0;
+  while (!doc && attempts < 5) {
+    attempts += 1;
+    const referenceCode = await generateLeadReferenceCode(vid, specialDay);
+    try {
+      doc = await Lead.create({
+        venueId: vid,
+        createdBy: toObjectId(decoded.sub),
+        referenceCode,
+        eventType,
+        eventTypeOther: eventType === 'other' && body.eventTypeOther ? String(body.eventTypeOther).trim() : '',
+        specialDay,
+        expectedGuests: Number.isFinite(Number(body.expectedGuests)) ? Number(body.expectedGuests) : null,
+        eventStatus:
+          body.eventStatus && Lead.EVENT_STATUSES.includes(String(body.eventStatus).trim().toLowerCase())
+            ? String(body.eventStatus).trim().toLowerCase()
+            : 'not_started',
+        meetings: body.meetings !== undefined ? (sanitizeMeetings(body.meetings) || []) : [],
+        contact,
+        status: 'new',
+        notes: body.notes != null ? String(body.notes).trim() : '',
+        metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : {},
+      });
+    } catch (err) {
+      if (err?.code !== 11000) throw err;
+    }
+  }
+  if (!doc) return res.error('Could not generate unique lead reference code', 500);
 
   return res.success(doc, 201);
 }
@@ -424,6 +499,18 @@ async function patchLead(event) {
   }
   if (body.expectedGuests !== undefined) {
     update.expectedGuests = Number.isFinite(Number(body.expectedGuests)) ? Number(body.expectedGuests) : null;
+  }
+  if (body.eventStatus !== undefined) {
+    const es = String(body.eventStatus).trim().toLowerCase();
+    if (!Lead.EVENT_STATUSES.includes(es)) {
+      return res.error(`eventStatus must be one of: ${Lead.EVENT_STATUSES.join(', ')}`, 400);
+    }
+    update.eventStatus = es;
+  }
+  if (body.meetings !== undefined) {
+    const meetings = sanitizeMeetings(body.meetings);
+    if (!meetings) return res.error('meetings must be an array of { meetingAt, notes? }', 400);
+    update.meetings = meetings;
   }
   if (body.contact !== undefined) {
     const c = sanitizeContact(body.contact);

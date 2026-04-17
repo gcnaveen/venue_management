@@ -20,6 +20,56 @@ const vendorSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    vendorType: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    paymentCategory: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    companyName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    legalCategory: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    gst: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    pan: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    aadhar: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    msmedNo: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    contact: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     contactName: {
       type: String,
       trim: true,
@@ -34,6 +84,19 @@ const vendorSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+    },
+    alternatePhone: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    bankDetails: {
+      bankName: { type: String, trim: true, default: '' },
+      beneficiaryName: { type: String, trim: true, default: '' },
+      bankPincode: { type: String, trim: true, default: '' },
+      accountNumber: { type: String, trim: true, default: '' },
+      ifscCode: { type: String, trim: true, default: '' },
+      branch: { type: String, trim: true, default: '' },
     },
     notes: {
       type: String,

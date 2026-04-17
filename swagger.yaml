@@ -1606,6 +1606,106 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/events/{eventId}/advances/{advanceId}/confirm:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        description: Lead id (frontend \"event\")
+        schema: { type: string }
+      - name: advanceId
+        in: path
+        required: true
+        description: Payment id (frontend \"advance\")
+        schema: { type: string }
+    patch:
+      tags: [Payments]
+      summary: Confirm advance/payment received (alias route)
+      description: |
+        Same as confirming a payment for a lead. `eventId` is the lead `_id`; `advanceId` is the payment `_id`.
+        Venue is resolved from the lead. Auth Admin, Incharge, or Owner (same as payment APIs).
+      operationId: confirmAdvanceByEventPath
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmedNotes: { type: string }
+                notes: { type: string, description: Alias for confirmedNotes }
+      responses:
+        "200":
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/Payment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/venues/{venueId}/leads/{leadId}/payments/{paymentId}/confirm-received:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+      - name: leadId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: paymentId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Payments]
+      summary: Confirm payment received (owner)
+      operationId: confirmPaymentReceived
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmedNotes:
+                  type: string
+                  description: Optional confirmation notes from the owner
+                notes:
+                  type: string
+                  description: Alias for confirmedNotes
+      responses:
+        "200":
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    $ref: "#/components/schemas/Payment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # -------- Commissions (inflow + outflow per lead) --------
   /api/venues/{venueId}/leads/{leadId}/commissions:
     parameters:
@@ -2779,13 +2879,16 @@ paths:
       description: |
         Returns all religious calendar days. Global resource (not venue-scoped).
         Optional filters via query params: `religion`, `type`, `year`, `month`.
+
+        Use `religion=all` to return days for every religion (same as omitting `religion`).
       operationId: getCalendarDays
       parameters:
         - in: query
           name: religion
           schema:
             type: string
-            enum: [hindu, muslim, christian]
+            enum: [hindu, muslim, christian, all]
+          description: Filter by religion, or `all` for every religion.
         - in: query
           name: type
           schema:
@@ -3792,6 +3895,7 @@ components:
         _id: { type: string }
         venueId: { type: string }
         leadId: { type: string }
+        quoteId: { type: string, nullable: true }
         amount:
           type: number
           minimum: 0
@@ -3808,6 +3912,19 @@ components:
         notes:
           type: string
         reminderId:
+          type: string
+          nullable: true
+        confirmedReceived:
+          type: boolean
+          description: Owner/admin confirmation that payment was received
+        confirmedReceivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        confirmedBy:
+          type: string
+          nullable: true
+        confirmedNotes:
           type: string
           nullable: true
         status:

@@ -8,6 +8,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const ROLES = Object.freeze({
   ADMIN: 'admin',
   INCHARGE: 'incharge',
+  OWNER: 'owner',
 });
 
 /**
@@ -78,7 +79,9 @@ function requireAuth(event) {
  */
 function requireRole(event, allowedRoles) {
   const user = requireAuth(event);
-  if (!allowedRoles.includes(user.role)) {
+  const expandedAllowed = new Set(allowedRoles);
+  if (expandedAllowed.has(ROLES.INCHARGE)) expandedAllowed.add(ROLES.OWNER);
+  if (!expandedAllowed.has(user.role)) {
     const err = new Error('Forbidden');
     err.statusCode = 403;
     throw err;

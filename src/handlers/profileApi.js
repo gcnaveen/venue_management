@@ -102,7 +102,7 @@ async function resolveVenueId(event, user) {
   if (user.role === auth.ROLES.ADMIN) {
     return paramVenueId || queryVenueId || null;
   }
-  if (user.role === auth.ROLES.INCHARGE) {
+  if (user.role === auth.ROLES.INCHARGE || user.role === auth.ROLES.OWNER) {
     const u = await User.findById(user.sub).select('venueId').lean();
     const inchargeVenueId = u?.venueId?.toString();
     if (!inchargeVenueId) {

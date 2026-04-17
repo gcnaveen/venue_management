@@ -32,7 +32,7 @@ function toObjectId(id) {
 async function assertVenueAccess(event, venueId) {
   const decoded = auth.requireAuth(event);
   if (decoded.role === auth.ROLES.ADMIN) return;
-  if (decoded.role === auth.ROLES.INCHARGE) {
+  if (decoded.role === auth.ROLES.INCHARGE || decoded.role === auth.ROLES.OWNER) {
     const User = require('../models/User');
     const u = await User.findById(decoded.sub).select('venueId').lean();
     if (u?.venueId?.toString() !== String(venueId)) {

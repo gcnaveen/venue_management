@@ -96,7 +96,7 @@ async function getVenues(event) {
   auth.requireRole(event, [auth.ROLES.ADMIN, auth.ROLES.INCHARGE]);
   const query = {};
   const incharge = await auth.verifyToken(auth.getAuthHeaders(event).authorization);
-  if (incharge && incharge.role === auth.ROLES.INCHARGE) {
+  if (incharge && (incharge.role === auth.ROLES.INCHARGE || incharge.role === auth.ROLES.OWNER)) {
     const User = require('../models/User');
     const u = await User.findById(incharge.sub).select('venueId').lean();
     if (u?.venueId) query._id = u.venueId;

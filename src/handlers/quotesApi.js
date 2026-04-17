@@ -41,7 +41,7 @@ function toObjectId(id) {
 async function assertVenueAccess(event, venueId) {
   const decoded = auth.requireAuth(event);
   if (decoded.role === auth.ROLES.ADMIN) return decoded;
-  if (decoded.role === auth.ROLES.INCHARGE) {
+  if (decoded.role === auth.ROLES.INCHARGE || decoded.role === auth.ROLES.OWNER) {
     const User = require('../models/User');
     const u = await User.findById(decoded.sub).select('venueId').lean();
     if (u?.venueId?.toString() !== String(venueId)) {
@@ -91,7 +91,20 @@ function sanitizeAddons(raw) {
 
 function sanitizeTotals(raw) {
   if (!raw || typeof raw !== 'object') return {};
-  const keys = ['venueBase', 'venueGst', 'addonTotal', 'addonGst', 'subtotal', 'discount', 'total'];
+  const keys = [
+    'venueBase',
+    'venueNet',
+    'venueGst',
+    'venueTotal',
+    'selectedAddonTotal',
+    'maintenanceCharge',
+    'addonTotal',
+    'addonGst',
+    'addonsTotalWithGst',
+    'subtotal',
+    'discount',
+    'total',
+  ];
   const out = {};
   for (const k of keys) out[k] = Number.isFinite(Number(raw[k])) ? Number(raw[k]) : 0;
   return out;
@@ -105,6 +118,7 @@ function sanitizePricing(raw) {
     basePrice,
     inclusions: sanitizeInclusions(raw.inclusions),
     addons: sanitizeAddons(raw.addons),
+    maintenanceCharge: Number.isFinite(Number(raw.maintenanceCharge)) ? Number(raw.maintenanceCharge) : 0,
     gstRate: Number.isFinite(Number(raw.gstRate)) ? Number(raw.gstRate) : 0.18,
     discount: Number.isFinite(Number(raw.discount)) ? Number(raw.discount) : 0,
     totals: sanitizeTotals(raw.totals),
@@ -119,7 +133,7 @@ function resolveFlags(draft, confirmed, currentStatus) {
   if (d === true) c = false;
   let status = currentStatus || 'draft';
   if (d) status = 'draft';
-  if (c && status === 'draft') status = 'shared';
+  if (c && (status === 'draft' || status === 'shared')) status = 'confirmed';
   return { draft: d, confirmed: c, status };
 }
 
@@ -206,7 +220,11 @@ async function postQuote(event) {
 
   const isDraft = body.draft !== false;
   const isConfirmed = body.confirmed === true;
-  const { draft, confirmed, status } = resolveFlags(isDraft, isConfirmed, 'draft');
+  const requestedStatus =
+    body.status && Quote.QUOTE_STATUSES.includes(String(body.status).trim().toLowerCase())
+      ? String(body.status).trim().toLowerCase()
+      : 'draft';
+  const { draft, confirmed, status } = resolveFlags(isDraft, isConfirmed, requestedStatus);
 
   const doc = await Quote.create({
     leadId: lid,
@@ -316,7 +334,10 @@ async function patchQuote(event) {
 
   const draftVal = body.draft !== undefined ? Boolean(body.draft) : existing.draft;
   const confirmedVal = body.confirmed !== undefined ? Boolean(body.confirmed) : existing.confirmed;
-  const statusVal = body.status && Quote.QUOTE_STATUSES.includes(body.status) ? body.status : existing.status;
+  const statusVal =
+    body.status && Quote.QUOTE_STATUSES.includes(String(body.status).trim().toLowerCase())
+      ? String(body.status).trim().toLowerCase()
+      : existing.status;
 
   const flags = resolveFlags(draftVal, confirmedVal, statusVal);
   update.draft = flags.draft;
